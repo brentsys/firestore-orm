@@ -10,18 +10,20 @@ export class Query {
     if (value === undefined) throw new Error(`Invalid query with 'value' undefined`)
   }
 
+  /*
   filter(list: any) {
     let value = this.value
-    if (typeof value == "string") value = `'${value}'`
+    if (typeof value === "string") value = `'${value}'`
     let filterString: string
+    let filterFn : (x: any)=>string
     if (value instanceof firestore.Timestamp) {
       filterString = `(x) => x.data().${this.field}.toMillis() ${this.comp} ${value.toMillis()}`;
     } else {
       filterString = `(x) => x.data().${this.field} ${this.comp} ${value}`;
     }
-    var filterFn = eval(filterString);
+    //const filterFn = eval(filterString);
     return list.filter(filterFn);
-  };
+  }*/
 }
 
 export interface QueryOrder {
@@ -29,4 +31,4 @@ export interface QueryOrder {
   directionStr?: OrderByDirection
 }
 
-//const InequalityOperators = [">", ">=", "<", "<="]
+// const InequalityOperators = [">", ">=", "<", "<="]

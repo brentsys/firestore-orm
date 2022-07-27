@@ -2,16 +2,19 @@ import { CreatorFn } from "../interface/creator";
 import { FIREBASE_CUSTOM } from "../constants";
 import * as admin from 'firebase-admin'
 import * as _ from 'lodash';
-import { AuthError, DocumentPath, IDBGroupConfig, ModelCreator, Query, RecordAction, RecordModel } from "../model";
+import { AuthError, Query, RecordModel } from "../model";
 import { firestore } from "firebase-admin";
-import { reject } from "lodash";
+import { ModelCreator } from "../interface/model_creator";
+import { DocumentPath } from "../model/document_path";
+import { RecordAction } from "../model/record_action";
+import { IDBGroupConfig } from "../interface/idb_group_config";
 
 const removedKeys = ["modelType", "errors", "collectionPath", "context"]
 
 type Body = { [key: string]: any }
 
 export function isCreatorFn<Q extends RecordModel>(creator: ModelCreator<Q> | null | CreatorFn<Q>): creator is CreatorFn<Q> {
-  return (creator as any).recordType == undefined
+  return (creator as any).recordType === undefined
 }
 
 /*
@@ -56,7 +59,7 @@ export default abstract class RecordModelController<Q extends RecordModel> {
   cfg?: IDBGroupConfig
 
   hasFirebaseToken(req: any): boolean {
-    return req.headers.from == FIREBASE_CUSTOM
+    return req.headers.from === FIREBASE_CUSTOM
   }
 
   protected sanitize(obj: Body | Body[]): Body | Body[] {
@@ -83,7 +86,7 @@ export default abstract class RecordModelController<Q extends RecordModel> {
     if (obj instanceof Array) {
       return obj.map(x => this.sanitizeTime(x))
     } else {
-      let timeKeys = _.keys(obj).filter(k => obj[k] instanceof admin.firestore.Timestamp)
+      const timeKeys = _.keys(obj).filter(k => obj[k] instanceof admin.firestore.Timestamp)
       timeKeys.forEach(k => obj[k] = timeString(obj[k]))
       return obj
     }
@@ -94,13 +97,13 @@ export default abstract class RecordModelController<Q extends RecordModel> {
     const queries: Query[] = []
     fields.forEach(field => {
       const value = req.query[field]
-      //console.log("value : ", value, " type: ", typeof value)
+      // console.log("value : ", value, " type: ", typeof value)
       if (typeof value === "object") {
-        //does not know how to handle it for the moment
+        // does not know how to handle it for the moment
       } else if (this.getFloatFields().includes(field)) {
         queries.push(new Query(field, "==", parseFloat(value)))
       } else if (this.getIntegerFields().includes(field)) {
-        queries.push(new Query(field, "==", parseInt(value)))
+        queries.push(new Query(field, "==", parseInt(value, 10)))
       } else {
         queries.push(new Query(field, "==", value))
       }
@@ -109,21 +112,21 @@ export default abstract class RecordModelController<Q extends RecordModel> {
   }
 
   setSt(req: any): void {
-    let creator = isCreatorFn(this.creator) ? this.creator(req) : this.creator
+    const creator = isCreatorFn(this.creator) ? this.creator(req) : this.creator
     if (!creator) return
-    let st = new RecordAction(creator, this.documentPath)
+    const st = new RecordAction(creator, this.documentPath)
     this.cfg = req.config
     st.setConfig(this.cfg!)
     this.st = st
   }
 
   notFound(error?: [number, string]) {
-    if (error == undefined) error = [404, 'Not found']
+    if (error === undefined) error = [404, 'Not found']
     return Promise.reject(new AuthError(error[0], error[1]));
   }
 
   process(req: any) {
-    //if(this.creator == null) return this.notFound([500, "creator missing on controller"])
+    // if(this.creator == null) return this.notFound([500, "creator missing on controller"])
     return this.preProcess(req)
       .then(() => {
         this.setSt(req)
@@ -141,11 +144,11 @@ export default abstract class RecordModelController<Q extends RecordModel> {
   }
 
   get(req: any): Promise<Q | Q[]> {
-    if (req.params.id == undefined) return this.getList(req)
+    if (req.params.id === undefined) return this.getList(req)
     return this.getSingle(req.params.id, req)
   }
 
-  //req? is kept here for backward compatibility issue
+  // req? is kept here for backward compatibility issue
   getSingle(id: string, req?: any): Promise<Q> {
     if (!this.st) return Promise.reject("st not set !")
     return this.st.findById(id)
@@ -171,8 +174,8 @@ export default abstract class RecordModelController<Q extends RecordModel> {
   }
 
   protected getPostData(req: any): Promise<any> {
-    let data = this.getData(req)
-    let res = this.postRequired.reduce((acc: string[], key: string) => {
+    const data = this.getData(req)
+    const res = this.postRequired.reduce((acc: string[], key: string) => {
       if (data[key] === undefined) acc.push(key)
       return acc
     }, [])
@@ -195,9 +198,9 @@ export default abstract class RecordModelController<Q extends RecordModel> {
 
   protected beforeCreate(req: any): (obj: Q) => Promise<Q> {
     return (obj: Q) => {
-      let fn = (obj as any).setRecordId
+      const fn = (obj as any).setRecordId
       if (!fn) return Promise.resolve(obj)
-      let id = fn.bind(obj)()
+      const id = fn.bind(obj)()
       if (id === undefined) return Promise.resolve(obj)
       return (this.st!.getCollection(req.config).doc(id) as any).get()
         .then((docRef: firestore.DocumentSnapshot) => {
@@ -208,7 +211,7 @@ export default abstract class RecordModelController<Q extends RecordModel> {
   }
 
   protected put(req: any): Promise<Q> {
-    let data = this.getUpdatableData(req)
+    const data = this.getUpdatableData(req)
     return this.getSingle(req.params.id, req)
       .then(obj => {
         obj.assign(data)

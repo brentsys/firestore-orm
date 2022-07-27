@@ -22,13 +22,14 @@ function getCount(ref: firestore.DocumentReference): Promise<number> {
 }
 
 // [START increment_counter]
-function incrementCounter(db: firestore.Firestore, ref: firestore.DocumentReference, numShards: number) {
+function incrementCounter(_db: firestore.Firestore, ref: firestore.DocumentReference, numShards: number) {
+  db = _db
   // Select a shard of the counter at random
   const shardId = Math.floor(Math.random() * numShards).toString();
   const shardRef = ref.collection('shards').doc(shardId);
 
   // Update count in a transaction
-  return db.runTransaction(t => {
+  return _db.runTransaction(t => {
     return t.get(shardRef).then(doc => {
       const data = doc.data() || {}
       const newCount = data.count + 1;
@@ -44,16 +45,16 @@ function createCounter(ref: any, nb: number): Promise<void> {
       if (snap.exists) return Promise.resolve()
       // console.log("creating counter ......", ref.id)
       let doc: any
-      //this is a dirty hack for a poor local implementation of firestore
+      // this is a dirty hack for a poor local implementation of firestore
       if (snap.ref === undefined) {
         doc = snap
       } else {
         doc = snap.ref
       }
-      var batch = db.batch();
+      const batch = db.batch();
       batch.set(doc, { num_shards: nb })
       for (let i = 0; i < nb; i++) {
-        let shardRef = doc.collection("shards").doc(i.toString())
+        const shardRef = doc.collection("shards").doc(i.toString())
         batch.set(shardRef, { count: 0 })
       }
       return batch.commit()
@@ -71,10 +72,10 @@ function _nextIndex(ref: any, shards?: number) {
 
 function nextIndex(_db: FirestoreType, recType: string, nb?: number) {
   db = _db
-  var rf = counterReference(recType);
+  const rf = counterReference(recType);
   return _nextIndex(rf, nb);
-};
+}
 
 export const Counter = {
-  nextIndex: nextIndex
+  nextIndex
 };

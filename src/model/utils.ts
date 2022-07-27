@@ -6,7 +6,7 @@ function noCustProps(obj: any): boolean {
   return Object.getPrototypeOf(obj) === Object.prototype
 }
 
-function subObject<T>(obj: Array<T>) {
+function subObject<T>(obj: T[]) {
   return obj.reduce((acc: Field, cur: any, idx: number) => {
     acc[idx.toString()] = cur
     return acc
@@ -14,7 +14,7 @@ function subObject<T>(obj: Array<T>) {
 }
 
 export function hasNoCustomProperties(obj: any): boolean {
-  let reducer = (acc: boolean, elm: any) => {
+  const reducer = (acc: boolean, elm: any) => {
     if (!acc) return acc
     return hasNoCustomProperties(elm)
   }
@@ -24,7 +24,7 @@ export function hasNoCustomProperties(obj: any): boolean {
     } else {
       if (obj instanceof firestore.Timestamp) return true
       if (noCustProps(obj)) {
-        let values = Object.keys(obj).map(x => obj[x])
+        const values = Object.keys(obj).map(x => obj[x])
         return values.reduce(reducer, true)
       } else return false
     }
@@ -33,13 +33,13 @@ export function hasNoCustomProperties(obj: any): boolean {
 
 export function getCustomProperties(obj: Field): string[] {
   return Object.keys(obj).reduce((acc: string[], key: string) => {
-    let element = obj[key]
+    const element = obj[key]
     if (!hasNoCustomProperties(element)) {
-      let subObj = element instanceof Array ? subObject(element) : element
+      const subObj = element instanceof Array ? subObject(element) : element
       if (hasNoCustomProperties(subObj)) acc.push(key)
       else {
-        let subprops = getCustomProperties(subObj)
-        if (subprops.length == 0) acc.push(key)
+        const subprops = getCustomProperties(subObj)
+        if (subprops.length === 0) acc.push(key)
         else subprops.forEach(soKey => acc.push([key, soKey].join("::")))
       }
     }
