@@ -1,5 +1,5 @@
 {
-  "name": "firestore-orm",
+  "name": "bsc-firestore-orm",
   "version": "1.0.0",
   "description": "BrentSys custom Firestor ORM",
   "main": "lib/index.js",
