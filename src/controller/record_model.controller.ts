@@ -1,13 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { CreatorFn } from "../interface/creator";
 import { FIREBASE_CUSTOM } from "../constants";
-import * as admin from 'firebase-admin'
-import * as _ from 'lodash';
-import { AuthError, Query, RecordModel } from "../model";
-import { firestore } from "firebase-admin";
-import { ModelCreator } from "../interface/model_creator";
-import { DocumentPath } from "../model/document_path";
-import { RecordAction } from "../model/record_action";
-import { IDBGroupConfig } from "../interface/idb_group_config";
+import admin from 'firebase-admin'
+import _ from 'lodash';
+import { ModelCreator, RecordModel } from "../record_model";
+import { QueryFilter, QueryGroup, toQueryGroup } from "../types/query.types";
+import { AuthError } from "../auth_error";
+import { Repository } from "../repository";
+
 
 const removedKeys = ["modelType", "errors", "collectionPath", "context"]
 
@@ -30,9 +30,9 @@ export function getPostData(req: any) {
 
 export default abstract class RecordModelController<Q extends RecordModel> {
 
-  abstract creator: ModelCreator<Q> | null | CreatorFn<Q>
+  abstract repo: Repository<Q>
 
-  documentPath?: DocumentPath
+  protected getParent: () => RecordModel | undefined = () => undefined
 
   postRequired: string[] = []
 
@@ -49,14 +49,9 @@ export default abstract class RecordModelController<Q extends RecordModel> {
     return []
   }
 
-
   protected getIntegerFields(): string[] {
     return []
   }
-
-  st?: RecordAction<Q>
-
-  cfg?: IDBGroupConfig
 
   hasFirebaseToken(req: any): boolean {
     return req.headers.from === FIREBASE_CUSTOM
@@ -92,32 +87,15 @@ export default abstract class RecordModelController<Q extends RecordModel> {
     }
   }
 
-  getFilters(req: any): Promise<Query[]> {
-    const fields = Object.keys(req.query || {})
-    const queries: Query[] = []
-    fields.forEach(field => {
-      const value = req.query[field]
-      // console.log("value : ", value, " type: ", typeof value)
-      if (typeof value === "object") {
-        // does not know how to handle it for the moment
-      } else if (this.getFloatFields().includes(field)) {
-        queries.push(new Query(field, "==", parseFloat(value)))
-      } else if (this.getIntegerFields().includes(field)) {
-        queries.push(new Query(field, "==", parseInt(value, 10)))
-      } else {
-        queries.push(new Query(field, "==", value))
-      }
-    })
-    return Promise.resolve(queries)
+  getFilters(req: any): Promise<QueryGroup> {
+    const json = req.query?.filter as string | undefined
+    if (!json) return Promise.resolve({})
+    const filter = JSON.parse(json) as QueryFilter
+    return Promise.resolve(toQueryGroup(filter))
   }
 
-  setSt(req: any): void {
-    const creator = isCreatorFn(this.creator) ? this.creator(req) : this.creator
-    if (!creator) return
-    const st = new RecordAction(creator, this.documentPath)
-    this.cfg = req.config
-    st.setConfig(this.cfg!)
-    this.st = st
+  setSt: (req: any) => void = () => {
+    return
   }
 
   notFound(error?: [number, string]) {
@@ -126,20 +104,26 @@ export default abstract class RecordModelController<Q extends RecordModel> {
   }
 
   process(req: any) {
-    // if(this.creator == null) return this.notFound([500, "creator missing on controller"])
     return this.preProcess(req)
       .then(() => {
         this.setSt(req)
-        if (req.method === 'POST') return this.post(req)
-        if (req.method === 'GET') return this.get(req)
-        if (req.method === 'PUT') return this.put(req)
-        if (req.method === 'DELETE') return this.del(req)
-        return AuthError.reject("Not found", 404)
+        switch (req.method) {
+          case "POST":
+            return this.post(req)
+          case "GET":
+            return this.get(req)
+          case "PUT":
+            return this.put(req)
+          case "DELETE":
+            return this.del(req)
+          default:
+            return AuthError.reject("Not found", 404)
+        }
       })
       .then(res => Promise.resolve(this.sanitize(res)))
   }
 
-  preProcess(req: any): Promise<any> {
+  preProcess: (req: any) => Promise<any> = (req) => {
     return Promise.resolve()
   }
 
@@ -149,19 +133,14 @@ export default abstract class RecordModelController<Q extends RecordModel> {
   }
 
   // req? is kept here for backward compatibility issue
-  getSingle(id: string, req?: any): Promise<Q> {
-    if (!this.st) return Promise.reject("st not set !")
-    return this.st.findById(id)
+  getSingle: (id: string, req?: any) => Promise<Q> = (id) => {
+    return this.repo.getById(id, this.getParent())
   }
 
-  private findAll(queries: Query[]): Promise<Q[]> {
-    if (!this.st) return Promise.reject("controller 'st' not set")
-    return this.st.findAll(queries)
-  }
-
-  getList(req: any): Promise<Q[]> {
-    return this.getFilters(req)
-      .then(this.findAll)
+  getList: (req: any) => Promise<Q[]> = async (req) => {
+    const qg: QueryGroup = await this.getFilters(req)
+    if (this.getParent()) qg.parent = this.getParent()
+    return this.repo.getList(qg)
   }
 
   protected getData(req: any): any {
@@ -185,40 +164,35 @@ export default abstract class RecordModelController<Q extends RecordModel> {
 
   protected post(req: any): Promise<Q> {
     return this.getPostData(req)
-      .then(data => this.st!.setData(data))
+      .then(data => this.repo.make(data, this.getParent()))
       .then(this.beforeCreate(req))
       .then(this.beforeSave(req))
-      .then(obj => obj.save<Q>(req.config))
-      .then(res => Promise.resolve((res as any) as Q))
+      .then(this.repo.save)
   }
 
-  protected beforeSave(req: any): (obj: Q) => Promise<Q> {
-    return (obj: Q) => Promise.resolve(obj)
-  }
+  protected beforeSave: (req: any) => (obj: Q) => Promise<Q> =
+    () => (obj: Q) => Promise.resolve(obj)
 
-  protected beforeCreate(req: any): (obj: Q) => Promise<Q> {
-    return (obj: Q) => {
-      const fn = (obj as any).setRecordId
-      if (!fn) return Promise.resolve(obj)
-      const id = fn.bind(obj)()
-      if (id === undefined) return Promise.resolve(obj)
-      return (this.st!.getCollection(req.config).doc(id) as any).get()
-        .then((docRef: firestore.DocumentSnapshot) => {
-          if (docRef.exists) return AuthError.reject("Doc already exists", 400)
-          return Promise.resolve(obj)
-        })
-    }
-  }
-
-  protected put(req: any): Promise<Q> {
-    const data = this.getUpdatableData(req)
-    return this.getSingle(req.params.id, req)
-      .then(obj => {
-        obj.assign(data)
-        return obj.save(req.config)
+  protected beforeCreate: (req: any) => (obj: Q) => Promise<Q> = () => (obj) => {
+    const id = obj.getRecordId()
+    console.log("+++> before create", id)
+    if (id === undefined) return Promise.resolve(obj)
+    return this.repo.getCollectionReference(this.getParent()).doc(id).get()
+      .then(snap => {
+        if (snap.exists) return AuthError.reject(`record with id ${id} already exists`, 502)
+        return Promise.resolve(obj)
       })
   }
-  protected del(req: any): Promise<any> {
+
+  protected async put(req: any): Promise<Q> {
+    const data = this.getUpdatableData(req)
+    const obj = await this.getSingle(req.params.id, req)
+    await obj.getDocumentReference()?.update(data)
+    Object.assign(obj, data)
+    return obj
+  }
+
+  protected del: (req: any) => Promise<any> = () => {
     return this.notFound()
   }
 
