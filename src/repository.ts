@@ -32,8 +32,8 @@ function getParentHierarchy(doc: DocumentSnapshot): [string, string][] {
 }
 
 export abstract class Repository<T extends ModelType = ModelType> {
-  abstract definition: ModelDefinition
-  abstract parentRepo?: Repository
+  abstract definition: ModelDefinition;
+  abstract parentRepo?: Repository;
 
   protected getRecordId: (obj: T) => string | undefined = () => {
     return undefined;

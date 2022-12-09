@@ -8,10 +8,9 @@ export class DummyRepository extends Repository<Dummy> {
   definition: ModelDefinition;
 
   constructor(public parentRepo?: Repository) {
-    super()
-    this.definition = dummyDefinition
+    super();
+    this.definition = dummyDefinition;
   }
-
 
   override getRecordId: (obj: Dummy) => string | undefined = (obj) => obj.name;
 }
