@@ -1,14 +1,13 @@
 import { AuthError } from "./auth_error";
 import { getDb } from "./config";
-import { BaseModel, ModelCreator, ModelDefinition, RecordModel } from "./record_model";
+import { BaseModel, ModelDefinition } from "./record_model";
 import { CollectionReference, DocumentData, DocumentSnapshot, Query, QueryDocumentSnapshot, SetOptions } from "./types/firestore";
 import { ModelType } from "./types/model.types";
 import { QueryGroup } from "./types/query.types";
 import { notEmpty } from "./utils";
 import _ from "lodash"
 import { removeUndefined } from "./tools";
-
-export type ParentType = ModelType | undefined | null
+import { transform } from "./types/common";
 
 function getParentHierarchy(doc: DocumentSnapshot): [string, string][] {
   const pathArray = doc.ref.path.split("/")
@@ -22,47 +21,71 @@ function getParentHierarchy(doc: DocumentSnapshot): [string, string][] {
   return hierarchy.slice(0, -1)
 }
 
-export class Repository<T extends RecordModel> {
+export class Repository<T extends ModelType = ModelType> {
 
-  constructor(private klass: ModelCreator<T>, readonly definition: ModelDefinition) { }
+  constructor(readonly definition: ModelDefinition, readonly parentRepo?: Repository) { }
 
-  getCollectionReference(parent: ParentType): CollectionReference {
+  protected getRecordId: (obj: T) => string | undefined = () => {
+    return undefined
+  }
+
+  protected beforeSave = (data: DocumentData) => {
+    return this.sanitize(removeUndefined(data))
+  }
+
+  private getParentPath(parent: ModelType | undefined): string | undefined {
+    const repo = this.parentRepo
+    const id = parent?.id
+    if (!repo || !id) return
+    return repo.getCollectionReference(parent).doc(id).path
+  }
+
+  getCollectionReference(parent: ModelType | undefined): CollectionReference {
     const { name, settings } = this.definition
-    const collPath = [parent?.getDocumentPath(), name].filter(notEmpty).join("/")
+    const collPath = [this.getParentPath(parent), name].filter(notEmpty).join("/")
 
     return getDb(settings?.projectId).collection(collPath)
   }
 
   fromDoc = (doc: DocumentSnapshot) => {
     const data = doc.data() || {}
-    let parent: RecordModel | undefined = undefined
+    let parent: ModelType | undefined = undefined
     getParentHierarchy(doc).forEach(cpl => {
       parent = new BaseModel(cpl, parent)
     })
-    const obj = new this.klass(data, parent)
+    const obj = this.make(data, parent)
     obj.id = doc.id
     return obj
   }
 
-  getById = async (id: string, parent: ParentType) => {
+  getDocumentReference = (id: string, parent: ModelType | undefined) => {
     const collRef = this.getCollectionReference(parent)
+    return collRef.doc(id)
+  }
 
-    return collRef.doc(id).get()
+  getById = async (id: string, parent: ModelType | undefined) => {
+    return this.getDocumentReference(id, parent).get()
       .then(snap => {
         return snap.exists ? Promise.resolve(this.fromDoc(snap)) : AuthError.reject(`Record not found (${snap.ref.path})`, 404)
       })
   }
 
-  fromQuerySnap = (parent: ModelType | undefined | null) => (doc: QueryDocumentSnapshot) => {
-    const data = doc.data() || {}
-    const obj = new this.klass(data, parent ?? undefined)
-    obj.id = doc.id
-    return obj
+  findById = async (id: string, parent: ModelType | undefined) => {
+    return this.getById(id, parent)
+      .catch(() => Promise.resolve(undefined))
   }
+
+  fromQuerySnap: (parent: ModelType | undefined | null) => (doc: QueryDocumentSnapshot) => T =
+    (parent) => (doc) => {
+      const data = doc.data() || {}
+      const obj = this.make(data, parent ?? undefined)
+      obj.id = doc.id
+      return obj
+    }
 
   getList = async (queryGroup: QueryGroup) => {
     const { parent } = queryGroup
-    const collRef = this.getCollectionReference(parent)
+    const collRef = this.getCollectionReference(parent ?? undefined)
     const sorts = queryGroup.sorts || []
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let query = collRef as any as Query
@@ -78,8 +101,9 @@ export class Repository<T extends RecordModel> {
     return snapShot.docs.map(this.fromQuerySnap(parent));
   }
 
-  make = (data: DocumentData, parent: ParentType) => {
-    const obj = new this.klass(data, parent ?? undefined)
+  make = (data: DocumentData, parent: ModelType | undefined) => {
+    const obj = transform<T>(data)
+    obj.parent = parent
     return obj
   }
 
@@ -90,39 +114,60 @@ export class Repository<T extends RecordModel> {
     return _.omit(data, transients)
   }
 
+  add = async (_data: DocumentData, parent: ModelType | undefined) => {
+    const data = this.beforeSave(_data)
+    const record = this.make(data, parent)
+    await this.checkRecordId(record)
+    return this.save(record)
+  }
+
+
   save = async (record: T) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const model = record as any as RecordModel
-    model.beforeSave()
-    const options: SetOptions = { merge: false }
-    const data = this.sanitize(model.objectData())
-    const promise = !model.id ?
-      this.add(data, model.parent) :
-      this.set(model.id, data, model.parent, options)
+    const id = record.id ?? this.getRecordId(record)
+    const options: SetOptions = { merge: !!record.id }
+    const data = this.sanitize(record)
+    const promise = !id ?
+      this.addData(data, record.parent) :
+      this.set(id, data, record.parent, options)
 
     return await promise
   }
 
+  private checkRecordId = async (record: T) => {
+    const id = record.id ?? this.getRecordId(record)
+    if (id) {
+      const found = await this.findById(id, record.parent)
+      if (found) return AuthError.reject(`record with id ${id} already exists`, 402)
+    }
+    return Promise.resolve()
+  }
 
-  add = async (data: DocumentData, parent: ParentType) => {
-    //console.log("sanitized data =>", this.sanitize(data))
-    const rec = await this.getCollectionReference(parent).add(this.sanitize(data))
-    const obj = new this.klass(data)
-    obj.id = rec.id
+
+  private addData = async (_data: DocumentData, parent: ModelType | undefined) => {
+    const collRef = this.getCollectionReference(parent)
+    const data = this.beforeSave(_data)
+    const docRef = await collRef.add(data)
+    const obj = this.make(data, parent)
+    obj.id = docRef.id
 
     return obj
   }
 
-  set = async (id: string, _data: DocumentData, parent: ParentType, options: SetOptions) => {
+  set = async (id: string, _data: DocumentData, parent: ModelType | undefined, options: SetOptions) => {
     const collRef = this.getCollectionReference(parent)
-    const data = this.sanitize(removeUndefined(_data))
+    const data = this.beforeSave(_data)
     const docRef = collRef.doc(id)
     await docRef.set(data, options)
-    const obj = new this.klass(data)
-    obj.id = id
-
-    return obj
+    return this.getById(id, parent)
   }
 
+
+  delete: (obj: T) => Promise<void> = async (obj) => {
+    const { id } = obj
+    if (!id) return AuthError.reject("Cannot delete. Id undefined", 422)
+    const docRef = this.getDocumentReference(id, obj.parent)
+    await docRef.delete()
+  }
 
 }

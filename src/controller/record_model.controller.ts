@@ -1,21 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { CreatorFn } from "../interface/creator";
 import { FIREBASE_CUSTOM } from "../constants";
 import admin from 'firebase-admin'
 import _ from 'lodash';
-import { ModelCreator, RecordModel } from "../record_model";
 import { QueryFilter, QueryGroup, toQueryGroup } from "../types/query.types";
 import { AuthError } from "../auth_error";
 import { Repository } from "../repository";
+import { ModelType } from "../types/model.types";
 
 
 const removedKeys = ["modelType", "errors", "collectionPath", "context"]
 
 type Body = { [key: string]: any }
-
-export function isCreatorFn<Q extends RecordModel>(creator: ModelCreator<Q> | null | CreatorFn<Q>): creator is CreatorFn<Q> {
-  return (creator as any).recordType === undefined
-}
 
 /*
 export function getPostData(req: any) {
@@ -28,11 +23,11 @@ export function getPostData(req: any) {
   return Promise.resolve(data)
 }*/
 
-export default abstract class RecordModelController<Q extends RecordModel> {
+export default abstract class RecordModelController<Q extends ModelType> {
 
   abstract repo: Repository<Q>
 
-  protected getParent: () => RecordModel | undefined = () => undefined
+  protected getParent: () => ModelType | undefined = () => undefined
 
   postRequired: string[] = []
 
@@ -123,7 +118,7 @@ export default abstract class RecordModelController<Q extends RecordModel> {
       .then(res => Promise.resolve(this.sanitize(res)))
   }
 
-  preProcess: (req: any) => Promise<any> = (req) => {
+  preProcess: (req: any) => Promise<any> = () => {
     return Promise.resolve()
   }
 
@@ -162,34 +157,16 @@ export default abstract class RecordModelController<Q extends RecordModel> {
     return Promise.resolve(data)
   }
 
-  protected post(req: any): Promise<Q> {
-    return this.getPostData(req)
-      .then(data => this.repo.make(data, this.getParent()))
-      .then(this.beforeCreate(req))
-      .then(this.beforeSave(req))
-      .then(this.repo.save)
-  }
-
-  protected beforeSave: (req: any) => (obj: Q) => Promise<Q> =
-    () => (obj: Q) => Promise.resolve(obj)
-
-  protected beforeCreate: (req: any) => (obj: Q) => Promise<Q> = () => (obj) => {
-    const id = obj.getRecordId()
-    console.log("+++> before create", id)
-    if (id === undefined) return Promise.resolve(obj)
-    return this.repo.getCollectionReference(this.getParent()).doc(id).get()
-      .then(snap => {
-        if (snap.exists) return AuthError.reject(`record with id ${id} already exists`, 502)
-        return Promise.resolve(obj)
-      })
+  protected async post(req: any): Promise<Q> {
+    const data = await this.getPostData(req)
+    return this.repo.add(data, this.getParent())
   }
 
   protected async put(req: any): Promise<Q> {
     const data = this.getUpdatableData(req)
-    const obj = await this.getSingle(req.params.id, req)
-    await obj.getDocumentReference()?.update(data)
-    Object.assign(obj, data)
-    return obj
+    const parent = this.getParent()
+    const { id } = req.params
+    return this.repo.set(id, data, parent, { merge: true })
   }
 
   protected del: (req: any) => Promise<any> = () => {

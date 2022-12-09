@@ -6,6 +6,9 @@ const dummyDefinition: ModelDefinition = { name: "dummies" }
 
 export class DummyRepository extends Repository<Dummy>{
   constructor() {
-    super(Dummy, dummyDefinition)
+    super(dummyDefinition)
   }
+
+  override getRecordId: (obj: Dummy) => string | undefined = (obj) => obj.name
+
 }

@@ -1,7 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { getDb } from "./config";
 import { QueryGroup, SortField } from "./types/query.types";
-import { notEmpty } from "./utils";
 import { AnyObject, DataObject } from "./types/common"
 import { changeMapsToDictionnary, removeFunctions, removeUndefined } from "./tools";
 import { ModelType } from "./types/model.types";
@@ -132,20 +130,6 @@ export abstract class RecordModel implements ModelType {
   static deleteGroup: (idx: string[], parent: ModelType | undefined | null) => Promise<any[]>
   static make: <Q extends RecordModel>(data: DocumentData, parent: ModelType | undefined | null) => Q
   static save: <Q extends ModelType>(record: Q) => Promise<Q>
-
-  getDocumentPath: () => string | undefined = () => {
-    const array = [this.parent?.getDocumentPath(), this.modelName, this.id].filter(notEmpty)
-    return this.id ? array.join("/") : undefined
-  }
-
-  getCollectionPath = () => {
-    return [this.parent?.getDocumentPath(), this.modelName].filter(notEmpty).join("/")
-  }
-
-  getDocumentReference = () => {
-    const docPath = this.getDocumentPath()
-    return docPath ? getDb().doc(docPath) : undefined
-  }
 
   beforeSave = () => {/** */ }
 

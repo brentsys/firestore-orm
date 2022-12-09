@@ -1,4 +1,5 @@
 import admin from "firebase-admin";
+import { Dummy } from "./models/dummy";
 import { DummyRepository } from "./repositories/dummy_repository";
 
 process.env.FIRESTORE_EMULATOR_HOST = "localhost:8080"
@@ -10,18 +11,18 @@ admin.initializeApp({
 const repo = new DummyRepository()
 
 export const deleteAll = async () => {
-  const collRef = repo.getCollectionReference(null)
+  const collRef = repo.getCollectionReference(undefined)
   const list = await collRef.get()
   const promises = list.docs.map(doc => doc.ref.delete())
   return Promise.all(promises)
 }
 
-export const sample = {
-  id: "sample",
+export const sample: Dummy = {
+  id: "java",
   name: "java", platform: "Java", weight: 240
 }
 
-const data = [{
+const data: Dummy[] = [{
   name: "ios", platform: "ios13", weight: 112
 }, {
   name: "android", platform: "Android12", weight: 80
@@ -35,8 +36,7 @@ const data = [{
 export async function addFixtures() {
   await deleteAll()
   const promises = data.map((doc) => {
-    const obj = repo.make(doc, null)
-    return repo.save(obj)
+    return repo.add(doc, undefined)
   })
   await Promise.all(promises)
 

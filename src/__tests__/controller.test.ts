@@ -21,7 +21,7 @@ describe('Dummy Endpoints', () => {
   });
 
   it('GET /dummies/:id should get single record', async () => {
-    const res = await requestWithSupertest.get('/dummies/sample');
+    const res = await requestWithSupertest.get('/dummies/java');
     expect(res.status).toEqual(200);
     expect(res.type).toEqual(expect.stringContaining('json'));
     expect(res.body).toEqual(sample)

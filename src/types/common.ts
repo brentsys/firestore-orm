@@ -12,3 +12,8 @@ export interface AnyObject {
   [property: string]: any;
 }
 export type Options = AnyObject;
+
+export function transform<K extends object>(obj: object): K {
+
+  return obj as any as K
+}
