@@ -5,9 +5,13 @@ import { Dummy } from '../models/dummy';
 const dummyDefinition: ModelDefinition = { name: 'dummies' };
 
 export class DummyRepository extends Repository<Dummy> {
-  constructor() {
-    super(dummyDefinition);
+  definition: ModelDefinition;
+
+  constructor(public parentRepo?: Repository) {
+    super()
+    this.definition = dummyDefinition
   }
+
 
   override getRecordId: (obj: Dummy) => string | undefined = (obj) => obj.name;
 }
