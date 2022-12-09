@@ -8,6 +8,9 @@ import { notEmpty } from "./utils";
 import _ from "lodash"
 import { removeUndefined } from "./tools";
 import { transform } from "./types/common";
+import promiseSequential from "promise-sequential";
+
+const CHUNK_SIZE = 500
 
 function getParentHierarchy(doc: DocumentSnapshot): [string, string][] {
   const pathArray = doc.ref.path.split("/")
@@ -170,4 +173,25 @@ export class Repository<T extends ModelType = ModelType> {
     await docRef.delete()
   }
 
+
+  deleteGroup = (idx: string[], parent: ModelType | undefined) => {
+    const collRef = this.getCollectionReference(parent)
+    const { settings } = this.definition
+
+    const tasks = _.chunk(idx, CHUNK_SIZE).map(list => {
+      return () => {
+        const batch = getDb(settings?.projectId).batch()
+        list.forEach(id => {
+          const docRef = collRef.doc(id)
+          batch.delete(docRef)
+        })
+
+        return batch.commit()
+      }
+    })
+
+    return promiseSequential(tasks)
+  }
 }
+
+

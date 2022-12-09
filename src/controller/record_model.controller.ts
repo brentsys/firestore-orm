@@ -12,17 +12,6 @@ const removedKeys = ["modelType", "errors", "collectionPath", "context"]
 
 type Body = { [key: string]: any }
 
-/*
-export function getPostData(req: any) {
-  let data = this.getData(req)
-  let res = this.postRequired.reduce((acc: string[], key: string) => {
-    if (data[key] === undefined) acc.push(key)
-    return acc
-  }, [])
-  if (res.length > 0) return AuthError.reject(`Params: ${res.join(", ")} required`, 400)
-  return Promise.resolve(data)
-}*/
-
 export default abstract class RecordModelController<Q extends ModelType> {
 
   abstract repo: Repository<Q>
