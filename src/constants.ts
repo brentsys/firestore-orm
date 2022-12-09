@@ -1,1 +1,1 @@
-export const FIREBASE_CUSTOM = "firebase-custom"
+export const FIREBASE_CUSTOM = 'firebase-custom';

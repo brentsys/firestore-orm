@@ -1,30 +1,29 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import debug from 'debug';
+
+const dLog = debug('firestore-orm:assign');
 interface Processor {
-  process: (req: any) => Promise<any>
+  process: (req: any) => Promise<any>;
 }
 
-interface ModelProcessor {
-  new(): Processor
-}
+type ModelProcessor = new () => Processor;
 
-
-export const assign = function (creator: ModelProcessor) {
-  const fn = new creator()
-  return async function (req: any, res: any) {
+export const assign = (creator: ModelProcessor) => {
+  const fn = new creator();
+  return async (req: any, res: any) => {
     try {
       const response = await fn.process(req);
       const st = req.responseStatus || 200;
       return res.status(st).json(response);
     } catch (err: any) {
       const status = err.status || 422;
-      console.error(__filename, "!!==>", err)
+      dLog(__filename, '!!==>', err);
       if (process.env.NODE_ENV === 'production') {
-        console.info(err)
+        dLog(err);
         return res.status(status).send(err.message);
       } else {
         return res.status(status).send(err.message);
       }
     }
-  }
-}
-
+  };
+};

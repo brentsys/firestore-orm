@@ -1,1 +1,1 @@
-export * from './record_model'
+export * from './model/record_model';

@@ -1,4 +1,4 @@
 export interface IDocumentPath {
-  id: string
-  collectionPath: string[]
+  id: string;
+  collectionPath: string[];
 }
