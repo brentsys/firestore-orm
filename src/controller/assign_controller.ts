@@ -8,7 +8,7 @@ interface Processor {
 
 type ModelProcessor = new () => Processor;
 
-export const assign = (creator: ModelProcessor) => {
+export const assignController = (creator: ModelProcessor) => {
   const fn = new creator();
   return async (req: any, res: any) => {
     try {
