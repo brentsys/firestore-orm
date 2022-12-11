@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { SortField } from '../types/query.types';
+import { QueryGroup, SortField } from '../types/query.types';
 import { AnyObject, DataObject } from '../types/common';
 import { ModelType } from '../types/model.types';
 import { Timestamp } from '../types/firestore';
@@ -14,6 +14,15 @@ export interface DataSyncSettings {
   sort: SortField[];
 }
 
+export type HttpMethods = "GET" | "PUT" | "POST" | "PATCH" | "DELETE"
+
+export interface RestApiSetting {
+  baseUrl: string,
+  headers?: { [key: string]: string }
+  methods?: HttpMethods[]
+  filterPrefix?: string
+  paramSerialization?: (qg: QueryGroup) => string | AnyObject
+}
 export interface ModelSettings {
   /**
    * Description of the model
@@ -26,10 +35,9 @@ export interface ModelSettings {
   projectId?: string;
 
   /**
-   * Prevent clients from setting the auto-generated ID value manually
+   * Rest Api
    */
-  forceId?: boolean;
-
+  restApi?: RestApiSetting
   /**
    * Hides properties from response bodies
    */
@@ -60,28 +68,11 @@ export abstract class RecordModel implements ModelType {
 
   getHiddenFields: () => string[] = () => [];
 
-  beforeSave = () => {
-    /** */
-  };
 
   getRecordId: () => string | undefined = () => undefined;
 
-  /**
-   * Serialize into a plain JSON object
-   */
-  // toJSON(): Object;
 
-  /**
-   * Convert to a plain object as DTO
-   *
-   * If `ignoreUnknownProperty` is set to false, convert all properties in the
-   * model instance, otherwise only convert the ones defined in the model
-   * definitions.
-   *
-   * See function `asObject` for each property's conversion rules.
-   */
-  // toObject(options?: Options): Object;
   constructor(data?: DataObject<RecordModel>, readonly parent?: ModelType | undefined) {
-    // Object.assign(this, _.omit(data, 'modelName'))
+
   }
 }

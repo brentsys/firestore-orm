@@ -1,8 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import admin from 'firebase-admin';
 
+export type ID = string | number
+
 export type ModelType = {
-  id?: string;
+  id?: ID;
   parent?: ModelType;
 };
 

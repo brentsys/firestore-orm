@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { ModelSettings } from './record_model';
 
+
 export interface ModelDefinitionSyntax {
   name: string;
   settings?: ModelSettings;
@@ -12,7 +13,7 @@ type nameOrSettings = string | ModelDefinitionSyntax;
 
 export class ModelDefinition {
   name: string;
-  activable? = false;
+  activable?= false;
   settings?: ModelSettings;
 
   constructor(params: nameOrSettings) {

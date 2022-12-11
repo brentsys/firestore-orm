@@ -1,11 +1,13 @@
 import admin from 'firebase-admin';
 import { Dummy } from './models/dummy';
 import { DummyRepository } from './repositories/dummy_repository';
+import dotenv from "dotenv"
+dotenv.config()
 
 process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
 
 admin.initializeApp({
-  projectId: 'orm-test-project', // "goip-cloud-bsc"
+  projectId: 'orm-test-project'
 });
 
 const repo = new DummyRepository();

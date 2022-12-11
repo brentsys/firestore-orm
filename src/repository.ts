@@ -31,9 +31,10 @@ function getParentHierarchy(doc: DocumentSnapshot): [string, string][] {
   return hierarchy.slice(0, -1);
 }
 
-export abstract class Repository<T extends ModelType = ModelType> {
+export abstract class Repository<T extends ModelType> {
   abstract definition: ModelDefinition;
-  abstract parentRepo?: Repository;
+
+  constructor(protected parentRepo: Repository<ModelType> | undefined) { }
 
   protected getRecordId: (obj: T) => string | undefined = () => {
     return undefined;
@@ -43,11 +44,11 @@ export abstract class Repository<T extends ModelType = ModelType> {
     return this.sanitize(removeUndefined(data));
   };
 
-  private getParentPath(parent: ModelType | undefined): string | undefined {
+  getParentPath(parent: ModelType | undefined): string | undefined {
     const repo = this.parentRepo;
     const id = parent?.id;
     if (!repo || !id) return;
-    return repo.getCollectionReference(parent).doc(id).path;
+    return repo.getCollectionReference(parent).doc(`${id}`).path;
   }
 
   getCollectionReference(parent: ModelType | undefined): CollectionReference {
@@ -137,7 +138,7 @@ export abstract class Repository<T extends ModelType = ModelType> {
     const id = record.id ?? this.getRecordId(record);
     const options: SetOptions = { merge: !!record.id };
     const data = this.sanitize(record);
-    const promise = !id ? this.addData(data, record.parent) : this.set(id, data, record.parent, options);
+    const promise = !id ? this.addData(data, record.parent) : this.set(`${id}`, data, record.parent, options);
 
     return await promise;
   };
@@ -145,7 +146,7 @@ export abstract class Repository<T extends ModelType = ModelType> {
   private checkRecordId = async (record: T) => {
     const id = record.id ?? this.getRecordId(record);
     if (id) {
-      const found = await this.findById(id, record.parent);
+      const found = await this.findById(`${id}`, record.parent);
       if (found) return AuthError.reject(`record with id ${id} already exists`, 402);
     }
     return Promise.resolve();
@@ -169,10 +170,9 @@ export abstract class Repository<T extends ModelType = ModelType> {
     return this.getById(id, parent);
   };
 
-  delete: (obj: T) => Promise<void> = async (obj) => {
-    const { id } = obj;
-    if (!id) return AuthError.reject('Cannot delete. Id undefined', 422);
-    const docRef = this.getDocumentReference(id, obj.parent);
+  delete: (id: string | undefined, parent: ModelType | undefined) => Promise<void> = async (id, parent) => {
+    if (!id) return AuthError.reject("Cannot delet undefined id")
+    const docRef = this.getDocumentReference(id, parent);
     await docRef.delete();
   };
 

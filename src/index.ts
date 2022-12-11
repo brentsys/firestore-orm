@@ -4,3 +4,4 @@ export * from './config';
 export * from './constants';
 export * from './repository';
 export * from './tools';
+export * from './types'
