@@ -44,6 +44,14 @@ export abstract class Repository<T extends ModelType> {
     return this.sanitize(removeUndefined(data));
   };
 
+  protected validateOnCreate = async (data: DocumentData) => {
+    return data
+  }
+
+  protected validateOnUpdate = async (data: DocumentData) => {
+    return data
+  }
+
   getParentPath(parent: ModelType | undefined): string | undefined {
     const repo = this.parentRepo;
     const id = parent?.id;
@@ -127,7 +135,7 @@ export abstract class Repository<T extends ModelType> {
   };
 
   add = async (_data: DocumentData, parent: ModelType | undefined) => {
-    const data = this.beforeSave(_data);
+    const data = await this.validateOnCreate(this.beforeSave(_data));
     const record = this.make(data, parent);
     await this.checkRecordId(record);
     return this.save(record);
@@ -164,7 +172,7 @@ export abstract class Repository<T extends ModelType> {
 
   set = async (id: string, _data: DocumentData, parent: ModelType | undefined, options: SetOptions) => {
     const collRef = this.getCollectionReference(parent);
-    const data = this.beforeSave(_data);
+    const data = await this.validateOnUpdate(this.beforeSave(_data));
     const docRef = collRef.doc(id);
     await docRef.set(data, options);
     return this.getById(id, parent);
