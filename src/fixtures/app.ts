@@ -29,9 +29,9 @@ enum HttpMethods {
 const ID_METHODS = [HttpMethods.GET, HttpMethods.DELETE, HttpMethods.PATCH, HttpMethods.PUT]
 const GROUP_METHODS = [HttpMethods.GET, HttpMethods.POST]
 
-type IControllerType<Q extends ModelType> = new () => RMC<Q>;
+type IControllerType<Q extends ModelType, P extends ModelType> = new () => RMC<Q, P>;
 
-function appCRUD<Q extends ModelType>(controller: IControllerType<Q>, methods?: HttpMethods[]) {
+function appCRUD<Q extends ModelType, P extends ModelType = ModelType>(controller: IControllerType<Q, P>, methods?: HttpMethods[]) {
   const ct = new controller()
   const path = "/" + ct.repo.definition.name
   if (!methods) methods = [HttpMethods.GET, HttpMethods.POST, HttpMethods.PUT, HttpMethods.DELETE]

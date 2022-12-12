@@ -5,7 +5,7 @@ import { QueryFilter } from '../types/query.types';
 
 const requestWithSupertest = supertest(server);
 
-describe('Dummy Endpoints', () => {
+describe.skip('Dummy Endpoints', () => {
   beforeAll((done) => {
     addFixtures().then(done);
   });

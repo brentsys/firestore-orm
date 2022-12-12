@@ -1,5 +1,5 @@
 import { ModelDefinition } from '../../model/model_definition';
-import { Repository } from '../../repository';
+import { OrphanRepository } from '../../repository/orphan_repository';
 import { User } from '../models/user';
 
 
@@ -17,12 +17,12 @@ export const userDefinition: ModelDefinition = {
   }
 };
 
-export class UserRepository extends Repository<User> {
-  definition: ModelDefinition;
+export class UserRepository extends OrphanRepository<User> {
+  definition = userDefinition
 
   constructor() {
-    super(undefined);
-    this.definition = userDefinition;
+    super()
   }
+
 
 }

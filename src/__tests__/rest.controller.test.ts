@@ -1,8 +1,7 @@
 import supertest from 'supertest';
 import server from '../fixtures/app';
 import _ from 'lodash'
-import { faker } from '@faker-js/faker'
-import { User } from '../fixtures/models/user';
+import { makeUser } from '../fixtures/fixture.tools'
 
 import debug from 'debug'
 const dLog = debug("test:test:rest-controller")
@@ -16,20 +15,7 @@ const isInstanceOfUser = (obj: any) => {
   return diff.length === 0
 }
 
-const makeUser = () => {
-  const gender = "male"
-  const firstName = faker.name.firstName(gender)
-  const lastName = faker.name.lastName()
-  const user: User = {
-    name: faker.name.fullName({ firstName, lastName }),
-    email: faker.internet.email(firstName, lastName),
-    gender,
-    status: "inactive"
-  }
-  return user
-}
-
-describe('Rest Endpoint Controller', () => {
+describe.skip('Rest Endpoint Controller', () => {
 
   let userId = 0
 

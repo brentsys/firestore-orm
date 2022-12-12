@@ -1,25 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { HttpMethods, RestApiSetting } from "../model/record_model";
-import { QueryGroup } from "../types";
-import { DocumentData, SetOptions } from "../types/firestore";
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios'
 import { AuthError } from "../errors";
 import debug from 'debug'
 import { notEmpty } from "../utils";
+import { DispatchSpecs } from "../types/dispatcher";
+import { ModelType } from "../types";
 
 const dLog = debug("test:rest")
-
-
-type Body = DocumentData // { [key: string]: any };
-
-export interface DispatchSpecs {
-  method: HttpMethods
-  query?: QueryGroup
-  data?: Body
-  id?: string
-  options?: SetOptions
-}
-
 
 export class RestController {
   rest: AxiosInstance
@@ -32,7 +20,7 @@ export class RestController {
     this.rest = axios.create(restConfig)
   }
 
-  toAxiosConfig: <T>(specs: DispatchSpecs) => AxiosRequestConfig<T> = <T>(specs: DispatchSpecs) => {
+  toAxiosConfig: <T, P extends ModelType>(specs: DispatchSpecs<P>) => AxiosRequestConfig<T> = <T, P extends ModelType>(specs: DispatchSpecs<P>) => {
     const serializer = this.settings?.paramSerialization
     const { id, data } = specs
     dLog("specs =>", specs)
@@ -59,8 +47,8 @@ export class RestController {
     return !methods || methods.includes(method)
   }
 
-  process: <T>(specs: DispatchSpecs) => Promise<T> = (specs: DispatchSpecs) => {
-    return this.rest.request(this.toAxiosConfig(specs))
+  process: <T, P extends ModelType>(specs: DispatchSpecs<P>) => Promise<T> = <T, P extends ModelType>(specs: DispatchSpecs<P>) => {
+    return this.rest.request(this.toAxiosConfig<T, P>(specs))
       .then(response => {
         dLog("response:", response.data)
         return Promise.resolve(response.data)

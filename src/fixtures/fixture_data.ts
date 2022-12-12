@@ -2,6 +2,7 @@ import admin from 'firebase-admin';
 import { Dummy } from './models/dummy';
 import { DummyRepository } from './repositories/dummy_repository';
 import dotenv from "dotenv"
+
 dotenv.config()
 
 process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';

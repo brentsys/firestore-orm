@@ -1,17 +1,11 @@
 import { ModelDefinition } from '../../model/model_definition';
-import { Repository } from '../../repository';
-import { ModelType } from '../../types';
+import { OrphanRepository } from '../../repository/orphan_repository';
 import { Dummy } from '../models/dummy';
 
 const dummyDefinition: ModelDefinition = { name: 'dummies' };
 
-export class DummyRepository extends Repository<Dummy> {
-  definition: ModelDefinition;
-
-  constructor(parentRepo?: Repository<ModelType>) {
-    super(parentRepo);
-    this.definition = dummyDefinition;
-  }
+export class DummyRepository extends OrphanRepository<Dummy> {
+  definition = dummyDefinition
 
   override getRecordId: (obj: Dummy) => string | undefined = (obj) => obj.name;
 }

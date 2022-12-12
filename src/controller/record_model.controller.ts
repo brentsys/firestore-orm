@@ -3,13 +3,14 @@ import admin from 'firebase-admin';
 import _ from 'lodash';
 import { QueryFilter, QueryGroup, toQueryGroup } from '../types/query.types';
 import { AuthError } from '../errors/auth_error';
-import { Repository } from '../repository';
 import { ModelType } from '../types/model.types';
 import { HttpMethods } from '../model/record_model';
-import { DispatchSpecs, RestController } from './rest.controller';
+import { RestController } from './rest.controller';
 import { DocumentData } from '../types/firestore';
 import debug from 'debug'
 import { Request } from '../types/request';
+import { BaseRepository } from '../repository/base_repository';
+import { DispatchSpecs } from '../types/dispatcher';
 
 const dLog = debug("test:record-controller")
 const removedKeys = ['modelType', 'errors', 'collectionPath', 'context'];
@@ -18,10 +19,8 @@ const removedKeys = ['modelType', 'errors', 'collectionPath', 'context'];
 type Body = { [key: string]: any };
 
 
-export abstract class RecordModelController<Q extends ModelType, T extends Body = Body> {
-  abstract repo: Repository<Q>;
-
-  protected getParent: () => ModelType | undefined = () => undefined;
+export abstract class RecordModelController<Q extends ModelType, P extends ModelType = ModelType> {
+  abstract repo: BaseRepository<Q, P>;
 
   private restAccess!: RestController
 
@@ -47,7 +46,7 @@ export abstract class RecordModelController<Q extends ModelType, T extends Body 
     return [];
   }
 
-  hasFirebaseToken(req: Request<T>): boolean {
+  hasFirebaseToken(req: Request): boolean {
     return req.headers.from === FIREBASE_CUSTOM;
   }
 
@@ -83,14 +82,14 @@ export abstract class RecordModelController<Q extends ModelType, T extends Body 
     }
   }
 
-  getFilters(req: Request<T>): Promise<QueryGroup> {
+  getFilters(req: Request): Promise<QueryGroup<P>> {
     const json = req.query?.filter as string | undefined;
     if (!json) return Promise.resolve({});
     const filter = JSON.parse(json) as QueryFilter;
-    return Promise.resolve(toQueryGroup(filter));
+    return Promise.resolve(toQueryGroup<P>(filter));
   }
 
-  setSt: (req: Request<T>) => void = () => {
+  setSt: (req: Request) => void = () => {
     return;
   };
 
@@ -99,7 +98,7 @@ export abstract class RecordModelController<Q extends ModelType, T extends Body 
     return Promise.reject(new AuthError(error[0], error[1]));
   }
 
-  async process(req: Request<T>) {
+  async process(req: Request) {
     this.restAccess = new RestController(this.repo.definition.settings?.restApi)
     const specs = await this.preProcess(req)
       .then(() => {
@@ -122,41 +121,41 @@ export abstract class RecordModelController<Q extends ModelType, T extends Body 
     return this.sanitize(res)
   }
 
-  preProcess: (req: Request<T>) => Promise<void> = () => {
+  preProcess: (req: Request) => Promise<void> = () => {
     return Promise.resolve();
   };
 
-  get(req: Request<T>): Promise<DispatchSpecs> {
+  get(req: Request): Promise<DispatchSpecs<P>> {
     if (req.params.id === undefined) return this.getList(req);
     return this.getSingle(req.params.id, req);
   }
 
   // req? is kept here for backward compatibility issue
-  getSingle: (id: string, req: Request<T>) => Promise<DispatchSpecs> = async (id) => {
+  getSingle: (id: string, req: Request) => Promise<DispatchSpecs<P>> = async (id, req) => {
+    const query: QueryGroup<P> = await this.getFilters(req);
     /*
     if (this.isRest("GET")) return this.rest<Q>(req, { url: `/${id}`, method: "GET" })
     return this.repo.getById(id, this.getParent());*/
-    return { method: "GET", id, }
+    return { method: "GET", id, query }
   };
 
-  getList: (req: Request<T>) => Promise<DispatchSpecs> = async (req) => {
-    const qg: QueryGroup = await this.getFilters(req);
-    if (this.getParent()) qg.parent = this.getParent();
+  getList: (req: Request) => Promise<DispatchSpecs<P>> = async (req) => {
+    const qg: QueryGroup<P> = await this.getFilters(req);
     return { method: "GET", query: qg }
     /*
     if (this.isRest("GET")) return this.rest<Q[]>(req, { query: qg, method: "GET" })
     return this.repo.getList(qg);*/
   };
 
-  protected getData(req: Request<T>): DocumentData {
+  protected getData(req: Request): DocumentData {
     return req.body;
   }
 
-  protected getUpdatableData(req: Request<T>): DocumentData {
+  protected getUpdatableData(req: Request): DocumentData {
     return _.omit(this.getData(req), this.getProtectedFields());
   }
 
-  protected getPostData(req: Request<T>): Promise<DocumentData> {
+  protected getPostData(req: Request): Promise<DocumentData> {
     const data = this.getData(req);
     const res = this.postRequired.reduce((acc: string[], key: string) => {
       if (data[key] === undefined) acc.push(key);
@@ -166,17 +165,19 @@ export abstract class RecordModelController<Q extends ModelType, T extends Body 
     return Promise.resolve(data);
   }
 
-  protected async post(req: Request<T>): Promise<DispatchSpecs> {
+  protected async post(req: Request): Promise<DispatchSpecs<P>> {
+    const query: QueryGroup<P> = await this.getFilters(req);
     const data = await this.getPostData(req);
-    const specs: DispatchSpecs = {
-      method: "POST", data
+    const specs: DispatchSpecs<P> = {
+      method: "POST", data, query
     }
     return specs
   }
 
-  protected async put(req: Request<T>): Promise<DispatchSpecs> {
+  protected async put(req: Request): Promise<DispatchSpecs<P>> {
+    const query: QueryGroup<P> = await this.getFilters(req);
     const data = this.getUpdatableData(req);
-    return { method: "PUT", data, id: req.params.id }
+    return { method: "PUT", data, id: req.params.id, query }
     /*
     return this.isRest("PUT") ?
       this.rest<Q>(req, { body: data, method: "POST", url }) :
@@ -184,29 +185,17 @@ export abstract class RecordModelController<Q extends ModelType, T extends Body 
       */
   }
 
-  protected del: (req: Request<T>) => Promise<DispatchSpecs> = async (req) => {
-    return { id: req.params.id, method: "DELETE" }
+  protected del: (req: Request) => Promise<DispatchSpecs<P>> = async (req) => {
+    const query: QueryGroup<P> = await this.getFilters(req);
+
+    return { id: req.params.id, method: "DELETE", query }
   };
 
-  private dispatch(specs: DispatchSpecs): Promise<Q | Q[] | void> {
-    const { id } = specs
+  private dispatch(specs: DispatchSpecs<P>): Promise<Q | Q[] | void> {
     if (this.isRest(specs.method)) {
-      return this.restAccess.process<Q>(specs)
+      return this.restAccess.process<Q, P>(specs)
     } else {
-      switch (specs.method) {
-        case "DELETE":
-          return this.repo.delete(specs.id, this.getParent())
-        case "PUT":
-          if (!id) throw (new Error("invalid null id"))
-          return this.repo.set(id, specs.data ?? {}, this.getParent(), { merge: true })
-        case "POST":
-          return this.repo.add(specs.data ?? {}, this.getParent());
-        case "GET":
-          if (id) return this.repo.getById(id, this.getParent())
-          else return this.repo.getList(specs.query ?? {})
-        default:
-          throw (new Error(`cannot process method ${specs.method}`))
-      }
+      return this.repo.execute(specs)
     }
   }
 }

@@ -12,13 +12,17 @@ export type OrderVar = [string | admin.firestore.FieldPath, OrderByDirection];
 
 export type SortField = [string | admin.firestore.FieldPath, OrderByDirection | undefined];
 
-export type QueryGroup = {
-  parent?: ModelType | null | undefined;
+export type QueryGroup<T extends ModelType = ModelType> = {
+  parent?: T | null | undefined;
   queries?: QueryTuple[];
   sorts?: SortField[];
   cursorId?: string | number;
   limit?: number;
 };
+
+export type ParentQueryGroup<T extends ModelType> = QueryGroup<T> & { parent: T }
+
+export type XQG<T extends ModelType> = QueryGroup<T> | ParentQueryGroup<T>
 
 export type WhereFilterKey = 'eq' | 'ne' | 'lt' | 'lte' | 'gte' | 'gt' | 'in' | 'not-in';
 export type WhereFilterArrayKey = 'array-contains' | 'array-contains-any';
@@ -61,8 +65,8 @@ const getFilterOp: (filter: KeyFilter) => QueryTuple = (filter) => {
   return [filter[0], filterOp, filter[1][1]];
 };
 
-export function toQueryGroup(filter: QueryFilter | undefined): QueryGroup {
-  const qg: QueryGroup = {};
+export function toQueryGroup<P extends ModelType>(filter: QueryFilter | undefined): QueryGroup<P> {
+  const qg: QueryGroup<P> = {};
   if (!filter) return qg;
   const { limit, sort, where } = filter;
   if (limit) qg.limit = limit;
