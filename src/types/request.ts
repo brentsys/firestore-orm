@@ -10,6 +10,7 @@ export interface Request extends Express.Request {
   headers: { [key: string]: string }
   method: HttpMethods
   params: { [key: string]: string }
+  originalUrl: string
 }
 
-//export type Request<T extends Body> = Express.Request & T
+// export type Request<T extends Body> = Express.Request & T

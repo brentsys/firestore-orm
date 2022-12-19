@@ -1,33 +1,30 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import admin from 'firebase-admin';
-import { ModelType } from './model.types';
 import _ from 'lodash';
+import { CollectionReference, DocumentChange, DocumentSnapshot, FieldPath, FirestoreError, OrderByDirection, Query, QueryDocumentSnapshot, WhereFilterOp } from './firestore';
 
-type OrderByDirection = admin.firestore.OrderByDirection;
-type WhereFilterOp = admin.firestore.WhereFilterOp;
 
-export type QueryTuple = [string | admin.firestore.FieldPath, WhereFilterOp, any];
+export type QueryTuple = [string | FieldPath, WhereFilterOp, any];
 export type QueryVar = QueryTuple;
-export type OrderVar = [string | admin.firestore.FieldPath, OrderByDirection];
+export type OrderVar = [string | FieldPath, OrderByDirection];
 
-export type SortField = [string | admin.firestore.FieldPath, OrderByDirection | undefined];
+export type SortField = [string | FieldPath, OrderByDirection | undefined];
 
-export type QueryGroup<T extends ModelType = ModelType> = {
-  parent?: T | null | undefined;
+export type QueryGroup = {
+  parentPath?: string | null | undefined;
   queries?: QueryTuple[];
   sorts?: SortField[];
-  cursorId?: string | number;
+  cursor?: DocumentSnapshot;
   limit?: number;
 };
 
-export type ParentQueryGroup<T extends ModelType> = QueryGroup<T> & { parent: T }
+export type ParentQueryGroup = QueryGroup & { parentPath: string }
 
-export type XQG<T extends ModelType> = QueryGroup<T> | ParentQueryGroup<T>
+export type XQG = QueryGroup | ParentQueryGroup
 
 export type WhereFilterKey = 'eq' | 'ne' | 'lt' | 'lte' | 'gte' | 'gt' | 'in' | 'not-in';
 export type WhereFilterArrayKey = 'array-contains' | 'array-contains-any';
 
-export type DocSnap = admin.firestore.DocumentSnapshot | admin.firestore.QueryDocumentSnapshot;
+export type DocSnap = DocumentSnapshot | QueryDocumentSnapshot;
 
 type FilterKey = [WhereFilterKey, any];
 type FilterArray = [WhereFilterArrayKey, any[]];
@@ -65,8 +62,8 @@ const getFilterOp: (filter: KeyFilter) => QueryTuple = (filter) => {
   return [filter[0], filterOp, filter[1][1]];
 };
 
-export function toQueryGroup<P extends ModelType>(filter: QueryFilter | undefined): QueryGroup<P> {
-  const qg: QueryGroup<P> = {};
+export function toQueryGroup(filter: QueryFilter | undefined): QueryGroup {
+  const qg: QueryGroup = {};
   if (!filter) return qg;
   const { limit, sort, where } = filter;
   if (limit) qg.limit = limit;
@@ -84,4 +81,31 @@ export function toQueryGroup<P extends ModelType>(filter: QueryFilter | undefine
     });
   }
   return qg;
+}
+
+export type QueryObserver<T> = {
+  next?: (changes: DocumentChange<T>[]) => void;
+  error?: (error: FirestoreError) => void;
+  complete?: () => void;
+}
+
+export type DocumentObserver<T> = {
+  next?: (snapshot: DocumentSnapshot<T>) => void;
+  error?: (error: FirestoreError) => void;
+  complete?: () => void;
+}
+
+
+export const makeQuery = <T>(qry: CollectionReference<T> | Query<T>, queryGroup: QueryGroup) => {
+  const sorts = queryGroup.sorts || []
+  const queries = queryGroup.queries || []
+  queries.forEach(q => qry = qry.where(q[0], q[1], q[2]))
+  sorts.forEach(s => qry = qry.orderBy(s[0], s[1]))
+  if (queryGroup.cursor) {
+    // const lastVisible = ref.doc(`${queryGroup.cursorId}`)
+    qry = qry.startAfter(queryGroup.cursor)
+  }
+  if (queryGroup.limit) qry = qry.limit(queryGroup.limit)
+
+  return qry
 }

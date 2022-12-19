@@ -1,4 +1,3 @@
-import admin from 'firebase-admin';
 import { User } from "./models/user"
 import { faker } from '@faker-js/faker'
 import { Post } from "./models/post";
@@ -7,22 +6,25 @@ import { PostRepository } from "./repositories/post.repository";
 import { Comment } from "./models/comment";
 import { CommentRepository } from "./repositories/comment.repository";
 import { UserRepository } from "./repositories/user.repository";
-import { ModelType } from '../types';
-import { BaseRepository } from '../repository/base_repository';
+import { ID } from '../types';
+import { notEmpty } from "../utils";
+import debug from "debug"
 
-process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
+const dLog = debug("fixture.tools.ts")
 
-const appConfig = {
-  projectId: 'orm-test-project'
-};
+const WAIT: [number, number] = [2000, 2000]
 
-const initializeFirestoreApp = () => {
-  if (admin.apps.length === 0) {
-    admin.initializeApp(appConfig)
-  }
+function delay(wait: [number, number]): number {
+  return process.env.DB_REPO === "remote" ? wait[0] : wait[1]
 }
 
-initializeFirestoreApp()
+export function waitRemote(wait?: [number, number]): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve()
+    }, delay(wait ?? WAIT)) // to wait for database adding
+  })
+}
 
 function getRandomInt(max: number, min = 0) {
   min = Math.ceil(min);
@@ -43,61 +45,72 @@ export const makeUser = () => {
     name: faker.name.fullName({ firstName, lastName }),
     email: faker.internet.email(firstName, lastName),
     gender,
-    status: "active"
+    status: "active",
   }
   return user
 }
 
-const makePost: () => Post = () => {
+export const makePost: (user: User) => Post = (user) => {
+  const repo = new UserRepository()
   return {
-    title: faker.lorem.text(),
-    body: faker.lorem.paragraph(),
+    title: faker.lorem.sentence(),
+    body: faker.lorem.sentence(2),
+    parentPath: repo.getDocumentPath(user)
   }
 }
 
-const makeComment: () => Comment = () => {
+const makeComment: (post: Post) => Comment = (post) => {
+  const postRepo = new PostRepository()
   return {
     name: faker.name.fullName(),
     email: faker.internet.email(),
-    body: faker.lorem.sentences(2)
+    body: faker.lorem.sentences(2),
+    parentPath: postRepo.getDocumentPath(post)
   }
 }
 
 export const makeUsers = async (nb: number) => {
   const repo = new UserRepository()
   const promises = _.range(nb).map(async () => {
-    const user = await repo.add(makeUser(), undefined)
+    const user = await repo.add(makeUser())
     await makePosts(user, 3)
+    return user.id
   })
-  await Promise.all(promises)
+  const list = await Promise.all(promises)
+  return list.filter(notEmpty)
 }
 
-const makePosts = async (user: User, nb: number) => {
+export const makePosts = async (user: User, nb: number) => {
   const repo = new PostRepository()
   const promises = _.range(nb).map(async () => {
-    const post = await repo.add(makePost(), user)
+    const post = await repo.add(makePost(user))
     await makeComments(repo, post, 2)
   })
   await Promise.all(promises)
 }
 
 const makeComments = async (postRepo: PostRepository, post: Post, nb: number) => {
-  const repo = new CommentRepository(postRepo)
+  const repo = new CommentRepository()
   const promises = _.range(nb).map(async () => {
-    await repo.add(makeComment(), post)
+    await repo.add(makeComment(post))
   })
   await Promise.all(promises)
 }
 
-const deleteRepo = async <T extends ModelType, P extends ModelType = ModelType>(repo: BaseRepository<T, P>) => {
-  const list = await repo.getList({})
-  await Promise.all(list.map(async doc => repo.deleteRecord(doc)))
+
+const asyncDeleteAllUsers = async (idx: ID[]) => {
+  const repo = new UserRepository()
+  const promises = idx.map(id => repo.delete(id, undefined))
+  return Promise.all(promises)
 }
 
-export const deleteAllUsers = async () => {
-  const postRepo = new PostRepository()
-  const commentRepo = new CommentRepository(postRepo)
-  await deleteRepo<Post, User>(postRepo)
-  await deleteRepo<Comment, Post>(commentRepo)
-  await deleteRepo(new UserRepository())
+export const deleteAllUsers = (idx: ID[]) => {
+  waitRemote()
+    .then(() => {
+      asyncDeleteAllUsers(idx)
+    })
+    .catch(error => {
+      dLog(error)
+    })
 }
+

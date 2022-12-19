@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { ModelType } from '../types';
 import { ModelSettings } from './record_model';
 
 
@@ -11,10 +12,10 @@ export interface ModelDefinitionSyntax {
 
 type nameOrSettings = string | ModelDefinitionSyntax;
 
-export class ModelDefinition {
+export class ModelDefinition<T extends ModelType = any> {
   name: string;
   activable?= false;
-  settings?: ModelSettings;
+  settings?: ModelSettings<T>;
 
   constructor(params: nameOrSettings) {
     if (typeof params === 'string') {

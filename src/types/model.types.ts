@@ -1,14 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import admin from 'firebase-admin';
+
+import { Timestamp } from "./firestore";
 
 export type ID = string | number
 
 export type ModelType = {
   id?: ID;
-  collectionPath?: string
+  parentPath?: string
 };
 
 export interface RecordType extends ModelType {
-  createdAt: admin.firestore.Timestamp;
+  createdAt: Timestamp;
   modelName: string;
 }

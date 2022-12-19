@@ -11,12 +11,13 @@ import { ModelType } from '../types';
 import { Dummy } from './models/dummy';
 import { User } from './models/user';
 import { UsersController } from './controllers/users.controller';
+import { DevicesController } from './controllers/devices.controller';
 
 const dLog = debug('firestore-orm:app');
 
 export const PORT = Number(process.env.PORT) || 3300;
 
-const app = express();
+const app: express.Express = express();
 
 // Parse JSON bodies for this app. Make sure you put
 // `app.use(express.json())` **before** your route handlers!
@@ -29,9 +30,9 @@ enum HttpMethods {
 const ID_METHODS = [HttpMethods.GET, HttpMethods.DELETE, HttpMethods.PATCH, HttpMethods.PUT]
 const GROUP_METHODS = [HttpMethods.GET, HttpMethods.POST]
 
-type IControllerType<Q extends ModelType, P extends ModelType> = new () => RMC<Q, P>;
+type IControllerType<Q extends ModelType> = new () => RMC<Q>;
 
-function appCRUD<Q extends ModelType, P extends ModelType = ModelType>(controller: IControllerType<Q, P>, methods?: HttpMethods[]) {
+function appCRUD<Q extends ModelType>(controller: IControllerType<Q>, methods?: HttpMethods[]) {
   const ct = new controller()
   const path = "/" + ct.repo.definition.name
   if (!methods) methods = [HttpMethods.GET, HttpMethods.POST, HttpMethods.PUT, HttpMethods.DELETE]
@@ -46,6 +47,9 @@ function appCRUD<Q extends ModelType, P extends ModelType = ModelType>(controlle
 appCRUD<Dummy>(DummyController)
 appCRUD<User>(UsersController)
 
+app.get('/dummies/:dummyId/devices/:id', assignController(DevicesController))
+app.get('/dummies/:dummyId/devices', assignController(DevicesController))
+
 /*
 app.get('/dummies', assignController(DummyController));
 app.get('/dummies/:id', assignController(DummyController));
@@ -53,15 +57,5 @@ app.post('/dummies', assignController(DummyController));
 app.delete('/dummies/:id', assignController(DummyController));
 app.put('/dummies./id', assignController(DummyController));
 */
-
-if (module === require.main) {
-  // [START server]
-  // Start the server
-  app.listen(PORT, () => {
-    // const port = server.address().port;
-    dLog(`App listening on port ${PORT}`);
-  });
-  // [END server]
-}
 
 export default app;

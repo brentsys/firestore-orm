@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { AxiosError } from 'axios';
 import debug from 'debug';
 
-const dLog = debug('firestore-orm:assign');
+const dLog = debug('test:firestore-orm:assign');
 interface Processor {
   process: (req: any) => Promise<any>;
 }
@@ -14,14 +15,18 @@ export const assignController = (creator: ModelProcessor) => {
     try {
       const response = await fn.process(req);
       const st = req.responseStatus || 200;
+      if (st > 300) {
+        dLog(__filename, 'status', st);
+      }
       return res.status(st).json(response);
     } catch (err: any) {
-      const status = err.status || 422;
-      dLog(__filename, '!!==>', err);
-      if (process.env.NODE_ENV === 'production') {
-        dLog(err);
-        return res.status(status).send(err.message);
+      if (err instanceof AxiosError) {
+        const status = err.response?.status || 422;
+        const message = err.response?.data ?? err.message
+        return res.status(status).send(message)
       } else {
+        const status = err.status || 422;
+        dLog(__filename, '!!==>', err);
         return res.status(status).send(err.message);
       }
     }

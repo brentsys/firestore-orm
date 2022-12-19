@@ -1,0 +1,1 @@
+export const ProjectId = 'bsc-firestore-orm'

@@ -1,4 +1,5 @@
-import { firestore } from 'firebase-admin';
-export interface DataModel extends firestore.DocumentData {
+import { DocumentData } from "../types/firestore";
+
+export interface DataModel extends DocumentData {
   id: string | undefined;
 }

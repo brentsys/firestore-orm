@@ -1,37 +1,27 @@
 import { FIREBASE_CUSTOM } from '../constants';
-import admin from 'firebase-admin';
 import _ from 'lodash';
 import { QueryFilter, QueryGroup, toQueryGroup } from '../types/query.types';
 import { AuthError } from '../errors/auth_error';
-import { ModelType } from '../types/model.types';
-import { HttpMethods } from '../model/record_model';
-import { RestController } from './rest.controller';
-import { DocumentData } from '../types/firestore';
+import { Timestamp } from '../types/firestore';
 import debug from 'debug'
 import { Request } from '../types/request';
+import Firebase from 'firebase/compat/app'
 import { BaseRepository } from '../repository/base_repository';
-import { DispatchSpecs } from '../types/dispatcher';
+import { ID, ModelType } from '../types/model.types';
 
 const dLog = debug("test:record-controller")
-const removedKeys = ['modelType', 'errors', 'collectionPath', 'context'];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Body = { [key: string]: any };
 
 
-export abstract class RecordModelController<Q extends ModelType, P extends ModelType = ModelType> {
-  abstract repo: BaseRepository<Q, P>;
-
-  private restAccess!: RestController
-
-  private isRest(method: HttpMethods) {
-    return this.restAccess.canProcess(method)
-  }
+export abstract class RecordModelController<Q extends ModelType> {
+  abstract repo: BaseRepository<Q>;
 
   postRequired: string[] = [];
 
   protected getProtectedFields(): string[] {
-    return ['id', 'createdAt', 'updatedAt'];
+    return [];
   }
 
   protected getPrivateFields(): string[] {
@@ -50,43 +40,24 @@ export abstract class RecordModelController<Q extends ModelType, P extends Model
     return req.headers.from === FIREBASE_CUSTOM;
   }
 
-  protected sanitize(obj: Body | Body[] | void): Body | Body[] {
-    if (!obj) return { result: "Ok" };
-    if (obj instanceof Array) {
-      return obj.map((x) => this.sanitize(x));
-    } else {
-      this.getPrivateFields()
-        .concat(removedKeys)
-        .forEach((x) => delete obj[x]);
-      _.keys(obj).forEach((key) => {
-        if (obj[key] instanceof Object) {
-          obj[key] = this.sanitize(obj[key]);
-        } else if (obj[key] instanceof Array) {
-          obj[key] = this.sanitize(obj[key]);
-        }
-      });
-      return obj;
-    }
-  }
-
   protected sanitizeTime(obj: Body | Body[]): Body | Body[] {
-    function timeString(time: admin.firestore.Timestamp): string {
+    function timeString(time: Timestamp): string {
       return time.toDate().toLocaleString();
     }
     if (obj instanceof Array) {
       return obj.map((x) => this.sanitizeTime(x));
     } else {
-      const timeKeys = _.keys(obj).filter((k) => obj[k] instanceof admin.firestore.Timestamp);
+      const timeKeys = _.keys(obj).filter((k) => obj[k] instanceof Firebase.firestore.Timestamp);
       timeKeys.forEach((k) => (obj[k] = timeString(obj[k])));
       return obj;
     }
   }
 
-  getFilters(req: Request): Promise<QueryGroup<P>> {
+  getFilters(req: Request): Promise<QueryGroup> {
     const json = req.query?.filter as string | undefined;
     if (!json) return Promise.resolve({});
     const filter = JSON.parse(json) as QueryFilter;
-    return Promise.resolve(toQueryGroup<P>(filter));
+    return Promise.resolve(toQueryGroup(filter));
   }
 
   setSt: (req: Request) => void = () => {
@@ -99,103 +70,90 @@ export abstract class RecordModelController<Q extends ModelType, P extends Model
   }
 
   async process(req: Request) {
-    this.restAccess = new RestController(this.repo.definition.settings?.restApi)
-    const specs = await this.preProcess(req)
+    return this.preProcess(req)
       .then(() => {
         this.setSt(req);
         switch (req.method) {
           case 'POST':
-            return this.post(req);
+            return this.post(req)
           case 'GET':
-            return this.get(req);
+            return this.get(req)
           case 'PUT':
-            return this.put(req);
+            return this.put(req)
           case 'DELETE':
             return this.del(req);
           default:
             return AuthError.reject('Not found', 404);
         }
       })
-    dLog("specs", specs)
-    const res = await this.dispatch(specs)
-    return this.sanitize(res)
   }
 
   preProcess: (req: Request) => Promise<void> = () => {
     return Promise.resolve();
   };
 
-  get(req: Request): Promise<DispatchSpecs<P>> {
+  getCollectionPath = (req: Request) => {
+    return [this.getParentPath(req), this.repo.definition.name].join("/")
+  }
+
+  getParentPath = (req: Request) => {
+    const split = req.originalUrl.split("/")
+    const idx = split.length % 2 === 0 ? -1 : -2
+    return split.slice(1, idx).join("/")
+  }
+
+  get(req: Request): Promise<Q | Q[]> {
+    dLog("request path ==>", req.originalUrl)
     if (req.params.id === undefined) return this.getList(req);
     return this.getSingle(req.params.id, req);
   }
 
-  // req? is kept here for backward compatibility issue
-  getSingle: (id: string, req: Request) => Promise<DispatchSpecs<P>> = async (id, req) => {
-    const query: QueryGroup<P> = await this.getFilters(req);
-    /*
-    if (this.isRest("GET")) return this.rest<Q>(req, { url: `/${id}`, method: "GET" })
-    return this.repo.getById(id, this.getParent());*/
-    return { method: "GET", id, query }
+  getSingle: (id: string, req: Request) => Promise<Q> = async (id, req) => {
+    return this.repo.getById(id, this.getParentPath(req))
   };
 
-  getList: (req: Request) => Promise<DispatchSpecs<P>> = async (req) => {
-    const qg: QueryGroup<P> = await this.getFilters(req);
-    return { method: "GET", query: qg }
-    /*
-    if (this.isRest("GET")) return this.rest<Q[]>(req, { query: qg, method: "GET" })
-    return this.repo.getList(qg);*/
+  getList: (req: Request) => Promise<Q[]> = async (req) => {
+    const qg: QueryGroup = await this.getFilters(req);
+    qg.parentPath = this.getParentPath(req)
+    return this.repo.getList(qg)
   };
 
-  protected getData(req: Request): DocumentData {
-    return req.body;
+  protected getData(req: Request): Q {
+    return req.body as Q;
   }
 
-  protected getUpdatableData(req: Request): DocumentData {
+  protected getUpdatableData(req: Request): Partial<Q> {
     return _.omit(this.getData(req), this.getProtectedFields());
   }
 
-  protected getPostData(req: Request): Promise<DocumentData> {
+  protected getPostData(req: Request): Promise<Partial<Q>> {
     const data = this.getData(req);
+    data.parentPath = this.getParentPath(req)
     const res = this.postRequired.reduce((acc: string[], key: string) => {
-      if (data[key] === undefined) acc.push(key);
+      if (_.get(data, key) === undefined) acc.push(key);
       return acc;
     }, []);
     if (res.length > 0) return AuthError.reject(`Params: ${res.join(', ')} required`, 400);
     return Promise.resolve(data);
   }
 
-  protected async post(req: Request): Promise<DispatchSpecs<P>> {
-    const query: QueryGroup<P> = await this.getFilters(req);
+  protected async post(req: Request): Promise<Q> {
     const data = await this.getPostData(req);
-    const specs: DispatchSpecs<P> = {
-      method: "POST", data, query
-    }
-    return specs
+    return this.repo.add(data as Q)
   }
 
-  protected async put(req: Request): Promise<DispatchSpecs<P>> {
-    const query: QueryGroup<P> = await this.getFilters(req);
+  protected async put(req: Request): Promise<Q> {
+    const query: QueryGroup = await this.getFilters(req);
     const data = this.getUpdatableData(req);
-    return { method: "PUT", data, id: req.params.id, query }
-    /*
-    return this.isRest("PUT") ?
-      this.rest<Q>(req, { body: data, method: "POST", url }) :
-      this.repo.set(id, data, parent, { merge: true });
-      */
+    const id = req.params.id
+    if (id) return Promise.reject(new Error("Id cannot be undefined for set"))
+    const record: Partial<Q> & { id: ID } = { ...data, id, parentPath: query.parentPath }
+    return this.repo.set(record, { merge: true })
   }
 
-  protected del: (req: Request) => Promise<DispatchSpecs<P>> = async (req) => {
-    const query: QueryGroup<P> = await this.getFilters(req);
-
-    return { id: req.params.id, method: "DELETE", query }
+  protected del: (req: Request) => Promise<unknown> = async (req) => {
+    const query: QueryGroup = await this.getFilters(req);
+    return this.repo.delete(req.params.id, query.parentPath ?? undefined)
   };
 
-  private dispatch(specs: DispatchSpecs<P>): Promise<Q | Q[] | void> {
-    if (this.isRest(specs.method)) {
-      return this.restAccess.process<Q, P>(specs)
-    } else {
-      return this.repo.execute(specs)
-    }
-  }
 }

@@ -1,20 +1,21 @@
-import admin from 'firebase-admin';
 import { Dummy } from './models/dummy';
-import { DummyRepository } from './repositories/dummy_repository';
 import dotenv from "dotenv"
+import admin from "firebase-admin"
+import { ProjectId } from './constants';
+import debug from "debug"
+const dLog = debug("fixtures")
 
 dotenv.config()
 
 process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
 
-admin.initializeApp({
-  projectId: 'orm-test-project'
-});
+const collPath = "dummies"
 
-const repo = new DummyRepository();
+const app = admin.initializeApp({ projectId: ProjectId })
+const fb = app.firestore()
 
 export const deleteAll = async () => {
-  const collRef = repo.getCollectionReference(undefined);
+  const collRef = fb.collection(collPath)
   const list = await collRef.get();
   const promises = list.docs.map((doc) => doc.ref.delete());
   return Promise.all(promises);
@@ -53,8 +54,12 @@ const data: Dummy[] = [
 
 export async function addFixtures() {
   await deleteAll();
-  const promises = data.map((doc) => {
-    return repo.add(doc, undefined);
+  const promises = data.map((rec) => {
+    return fb.collection(collPath).doc(rec.name).set(rec, { merge: false })
   });
   await Promise.all(promises);
+  const list = await fb.collection(collPath).get()
+  list.docs.forEach(doc => {
+    dLog(doc.id, "=>", doc.data())
+  })
 }

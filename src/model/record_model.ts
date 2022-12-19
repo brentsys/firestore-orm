@@ -23,7 +23,7 @@ export interface RestApiSetting {
   filterPrefix?: string
   paramSerialization?: (qg: QueryGroup) => string | AnyObject
 }
-export interface ModelSettings {
+export interface ModelSettings<T extends ModelType = any> {
   /**
    * Description of the model
    */
@@ -43,6 +43,15 @@ export interface ModelSettings {
    */
   hiddenProperties?: string[];
 
+  /**
+   * * Transient properties not saved id database
+   */
+  transientProperties?: string[];
+
+  /**
+   *  post init function
+   */
+  postInit?: (model: T) => void
   /**
    * Scope enables you to set a scope that will apply to every query made by the model's repository
    */

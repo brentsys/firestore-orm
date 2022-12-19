@@ -1,14 +1,11 @@
-import { ModelDefinition } from "../../model";
-import { Repository } from "../../repository/repository";
+import { RestRepository } from "../../repository/rest_repository";
 import { Post } from "../models/post";
-import { User } from "../models/user";
-import { UserRepository } from "./user.repository";
+import { getRestDefinition } from "./firebase";
 
-export class PostRepository extends Repository<Post, User> {
-  definition: ModelDefinition = { name: "posts" }
+export class PostRepository extends RestRepository<Post> {
 
   constructor() {
-    super(new UserRepository())
+    super(getRestDefinition("posts"))
   }
 
 }

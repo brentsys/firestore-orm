@@ -4,7 +4,7 @@ import _ from 'lodash'
 import { makeUser } from '../fixtures/fixture.tools'
 
 import debug from 'debug'
-const dLog = debug("test:test:rest-controller")
+const dLog = debug("test:test:rest-repository")
 
 const requestWithSupertest = supertest(server);
 
@@ -15,7 +15,7 @@ const isInstanceOfUser = (obj: any) => {
   return diff.length === 0
 }
 
-describe.skip('Rest Endpoint Controller', () => {
+describe('Rest Endpoint Controller', () => {
 
   let userId = 0
 
@@ -53,7 +53,9 @@ describe.skip('Rest Endpoint Controller', () => {
     const res = await requestWithSupertest.delete(`/users/${userId}`);
     expect(res.status).toEqual(200);
     const failed = await requestWithSupertest.get(`/users/${userId}`)
-    expect(failed.status).toEqual(404)
+    const fields = ["status", "statusCode", "text", "info"]
+    dLog("failed ==>", _.pick(failed, fields))
+    expect(failed.statusCode).toEqual(404)
   })
 
 });
