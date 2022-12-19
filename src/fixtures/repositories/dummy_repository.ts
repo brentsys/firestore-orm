@@ -1,7 +1,6 @@
 import { ModelDefinition } from '../../model/model_definition';
 import { Repository } from '../../repository/repository';
 import { Dummy } from '../models/dummy';
-import { getDb } from './firebase';
 
 const dummyDefinition: ModelDefinition<Dummy> = {
   name: 'dummies',
@@ -15,8 +14,6 @@ const dummyDefinition: ModelDefinition<Dummy> = {
 
 export class DummyRepository extends Repository<Dummy> {
   definition = dummyDefinition
-  db = getDb()
-
 
   override getRecordId: (obj: Partial<Dummy>) => string | undefined = (obj) => obj.name;
 }
