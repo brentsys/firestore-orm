@@ -41,7 +41,7 @@ export abstract class Repository<T extends ModelType> extends BaseRepository<T> 
     return this.db.collection(this.getCollectionPath(parentPath))
   }
 
-  getById = async (id: ID, parentPath: string | undefined) => {
+  async getById(id: ID, parentPath: string | undefined) {
     return this.getCollectionReference(parentPath).doc(`${id}`).withConverter(this.converter).get()
       .then((snap) => {
         const record = snap.data()
@@ -49,11 +49,11 @@ export abstract class Repository<T extends ModelType> extends BaseRepository<T> 
           ? Promise.resolve(record as WID<T>)
           : AuthError.reject(`Record not found (${snap.ref.path})`, 404);
       });
-  };
+  }
 
-  findById = async (id: string, parentPath: string | undefined) => {
+  async findById(id: string, parentPath: string | undefined) {
     return this.getById(id, parentPath).catch(() => Promise.resolve(undefined));
-  };
+  }
 
   fromQuerySnap: (doc: QueryDocumentSnapshot<T>) => WID<T> = (_doc) => {
     const data = _doc.data() || {}
@@ -61,30 +61,30 @@ export abstract class Repository<T extends ModelType> extends BaseRepository<T> 
     return data as WID<T>;
   };
 
-  getSnapshot = async (queryGroup: QueryGroup<T>) => {
+  async getSnapshot(queryGroup: QueryGroup<T>) {
     const parent = queryGroup.parentPath ? queryGroup.parentPath : undefined
     const collRef = this.getCollectionReference(parent ?? undefined).withConverter(this.converter);
     const query = makeQuery(collRef, queryGroup)
     return query.get()
   }
-  getList = async (queryGroup: QueryGroup<T>) => {
+  async getList(queryGroup: QueryGroup<T>) {
     const snapshot = await this.getSnapshot(queryGroup)
     return snapshot.docs.map(this.fromQuerySnap);
   }
 
-  getGroup = async (queryGroup: QueryGroup<T>) => {
+  async getGroup(queryGroup: QueryGroup<T>) {
     const q0 = this.db.collectionGroup(this.definition.name).withConverter(this.converter)
     const query = makeQuery(q0, queryGroup)
     return query.get()
   }
 
-  add = async (_data: T) => {
+  async add(_data: T) {
     const data = await this.validateOnCreate(this.beforeSave(_data));
     await this.checkRecordId(data);
     return this.save(data);
-  };
+  }
 
-  save = async (record: Partial<T>) => {
+  async save(record: Partial<T>) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const id = record.id ?? this.getRecordId(record);
     dLog("saving with id", id)
@@ -93,7 +93,7 @@ export abstract class Repository<T extends ModelType> extends BaseRepository<T> 
     const promise = !id ? this.addData(data) : this.setData(data, options);
 
     return await promise;
-  };
+  }
 
   private checkRecordId = async (record: Partial<T>) => {
     const id = record.id ?? this.getRecordId(record);
@@ -123,27 +123,27 @@ export abstract class Repository<T extends ModelType> extends BaseRepository<T> 
     return this.getDocRefResult(docRef);
   };
 
-  set = async (record: Partial<T> & { id: ID }, options: SetOptions) => {
+  async set(record: Partial<T> & { id: ID }, options: SetOptions) {
     const docRef = this.documentReference(record)
     const data = await this.validateOnUpdate(this.beforeSave(record));
     await docRef.set(data, options) // docRef.set(data, options);
     return this.getById(record.id, record.parentPath);
-  };
+  }
 
-  delete: (id: ID | undefined, parentPath: string | undefined) => Promise<void> = async (id, parentPath) => {
+  async delete(id: ID | undefined, parentPath: string | undefined): Promise<void> {
     if (!id) return AuthError.reject("Cannot delete undefined id")
     const docRef = this.getCollectionReference(parentPath).doc(id.toString())
     return docRef.delete()
-  };
+  }
 
-  deleteRecord: (record: T) => Promise<void> = async (record) => {
+  async deleteRecord(record: T): Promise<void> {
     const { id } = record
     if (!id) return AuthError.reject("Cannot delete undefined ID")
     dLog("deleting", this.documentReference(record).path)
     return this.documentReference(record).delete()
-  };
+  }
 
-  deleteGroup = (idx: ID[], parentPath: string | undefined) => {
+  deleteGroup(idx: ID[], parentPath: string | undefined) {
     const collRef = this.getCollectionReference(parentPath);
 
     const tasks = _.chunk(idx, CHUNK_SIZE).map((list) => {
@@ -158,19 +158,19 @@ export abstract class Repository<T extends ModelType> extends BaseRepository<T> 
     });
 
     return promiseSequential(tasks);
-  };
+  }
   fromQueryDoc(_doc: QueryDocumentSnapshot): T {
 
     return this.converter.fromFirestore(_doc)
   }
 
-  documentReference = (record: Partial<T>) => {
+  documentReference(record: Partial<T>) {
     const path = [this.getCollectionPath(record.parentPath), record.id].join("/")
 
     return this.db.doc(path).withConverter(this.converter)
   }
 
-  onSnapshot = (queryGroup: QueryGroup, observer: QueryObserver<T>) => {
+  onSnapshot(queryGroup: QueryGroup, observer: QueryObserver<T>) {
     const collRef = this.getCollectionReference(queryGroup.parentPath ?? undefined)
     const query = makeQuery(collRef.withConverter(this.converter), queryGroup)
     return query.onSnapshot({
@@ -181,7 +181,7 @@ export abstract class Repository<T extends ModelType> extends BaseRepository<T> 
     })
   }
 
-  onDocumentSnapshot = (record: T, observer: DocumentObserver<T>) => {
+  onDocumentSnapshot(record: T, observer: DocumentObserver<T>) {
     const docRef = this.documentReference(record)
 
     return docRef.onSnapshot(observer)

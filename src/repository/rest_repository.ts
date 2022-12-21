@@ -47,7 +47,7 @@ export abstract class RestRepository<T extends ModelType> extends BaseRepository
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  processAxios = <Q>(promise: Promise<AxiosResponse<Q>>, parent: string | null | undefined) => {
+  async processAxios<Q>(promise: Promise<AxiosResponse<Q>>, parent: string | null | undefined) {
     return promise
       .then(resp => {
         const data = resp.data
@@ -77,20 +77,20 @@ export abstract class RestRepository<T extends ModelType> extends BaseRepository
     return [collPath, id].filter(notEmpty).join("/")
   }
 
-  getList: (queryGroup: QueryGroup) => Promise<WID<T>[]> = async (qg) => {
-    dLog(`parent path = '${qg.parentPath}'`)
-    const url = this.getUrl(qg.parentPath)
+  async getList(queryGroup: QueryGroup): Promise<WID<T>[]> {
+    dLog(`parent path = '${queryGroup.parentPath}'`)
+    const url = this.getUrl(queryGroup.parentPath)
     dLog("getting list", url)
     const request = this.rest.get<WID<T>[]>(url)
-    return this.processAxios(request, qg.parentPath)
+    return this.processAxios(request, queryGroup.parentPath)
   }
 
-  getById: (id: ID, parent: string | undefined) => Promise<WID<T>> = (id, parent) => {
+  async getById(id: ID, parent: string | undefined): Promise<WID<T>> {
     const request = this.rest.get<WID<T>>(this.getUrl(parent, id))
     return this.processAxios(request, parent)
   }
 
-  add: (record: T) => Promise<T & { id: ID }> = async (record) => {
+  async add(record: T): Promise<T & { id: ID }> {
     dLog("record to save = ", record)
     const data = await this.validateOnCreate(this.beforeSave(record));
     const parent = record.parentPath
@@ -99,7 +99,7 @@ export abstract class RestRepository<T extends ModelType> extends BaseRepository
     return this.processAxios(request, parent)
   }
 
-  override set: (record: Partial<T> & { id: ID }, options: firebase.firestore.SetOptions) => Promise<T & { id: ID }> = async (record) => {
+  override async set(record: Partial<T> & { id: ID }, options: firebase.firestore.SetOptions): Promise<T & { id: ID }> {
     const data = await this.validateOnCreate(this.beforeSave(record));
     const id = record.id
     const parent = record.parentPath
@@ -107,21 +107,21 @@ export abstract class RestRepository<T extends ModelType> extends BaseRepository
     return this.processAxios(request, parent)
   }
 
-  delete: (id: ID, parent: string | undefined) => Promise<void> = (id, parent) => {
+  override async delete(id: ID, parent: string | undefined): Promise<void> {
     const url = this.getUrl(parent, id)
     dLog("deleting", url)
     const request = this.rest.delete<void>(url)
     return this.processAxios(request, parent)
   }
 
-  deleteRecord: (record: T) => Promise<void> = (record) => {
+  async deleteRecord(record: T): Promise<void> {
     const url = "/" + this.getDocumentPath(record)
     dLog("delete url = ", url)
     const request = this.rest.delete<void>(url)
     return this.processAxios(request, null)
   }
 
-  deleteGroup: (idx: ID[], parent: string | undefined) => Promise<unknown> = async (idx, parent) => {
+  async deleteGroup(idx: ID[], parent: string | undefined): Promise<unknown> {
     const promises = idx.map(id => this.delete(id, parent))
     return Promise.all(promises)
   }
