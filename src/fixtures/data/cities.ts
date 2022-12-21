@@ -29,3 +29,11 @@ export const makeCities = async () => {
     regions: ['jingjinji', 'hebei']
   });
 }
+
+export async function deleteCities() {
+  const citiesRef = db.collection('cities');
+  const snap = await citiesRef.get()
+  const batch = db.batch()
+  snap.docs.forEach(doc => batch.delete(doc.ref))
+  await batch.commit()
+}

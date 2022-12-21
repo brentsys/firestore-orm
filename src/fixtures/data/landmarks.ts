@@ -45,3 +45,10 @@ export const makeLandmarks = async () => {
   });
 }
 
+export async function deleteLandmarks() {
+  const groupRef = db.collectionGroup('landmarks')
+  const snap = await groupRef.get()
+  const batch = db.batch()
+  snap.docs.forEach(doc => batch.delete(doc.ref))
+  await batch.commit()
+}
