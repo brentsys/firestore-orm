@@ -13,7 +13,9 @@ const dummyDefinition: ModelDefinition<Dummy> = {
 };
 
 export class DummyRepository extends Repository<Dummy> {
+
   definition = dummyDefinition
+
 
   override getRecordId: (obj: Partial<Dummy>) => string | undefined = (obj) => obj.name;
 }

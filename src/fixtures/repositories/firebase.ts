@@ -1,9 +1,12 @@
 // Import the functions you need from the SDKs you need
-import Firebase from 'firebase/compat/app'
 import 'firebase/compat/firestore'
 import 'firebase/compat/auth'
 import { ProjectId } from '../constants';
 import { RestDefinition } from '../../repository/rest_repository';
+import { AppConfig, FirebaseConfig } from '../../config';
+import debug from 'debug';
+
+const dLog = debug("test:config")
 
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
@@ -17,40 +20,19 @@ const firebaseConfig = {
   appId: "dummyId",
 };
 
+const appConfig: AppConfig = {
+  config: firebaseConfig,
+  useEmulator: true
+}
+
 export const useEmulator = !!process.env.NEXT_PUBLIC_USE_EMULATOR
 
-let auth: Firebase.auth.Auth
-let db: Firebase.firestore.Firestore
-
-const host = "127.0.0.1"
-const authPort = 9099
-const dbPort = 8080
 
 // Initialize Firebase
-const initApp = () => {
-  if (!Firebase.apps.length) {
-    const app = Firebase.initializeApp(firebaseConfig)
-    // auth
-    auth = app.auth()
-    const authUrl = `http://${host}:${authPort}`
-    auth.useEmulator(authUrl)
+FirebaseConfig.initApp(appConfig)
+dLog("Firebase initialized!")
 
-    // firestore
-    db = app.firestore()
-    db.useEmulator(host, dbPort)
-  }
-}
-
-
-export const getDb = () => {
-  initApp()
-  return db
-}
-
-export const getAuth = () => {
-  initApp()
-  return auth
-}
+const { getAuth } = FirebaseConfig
 
 
 export async function signIn() {
@@ -73,6 +55,3 @@ export function getRestDefinition(name: string): RestDefinition {
   }
 }
 
-
-
-export default Firebase

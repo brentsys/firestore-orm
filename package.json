@@ -1,6 +1,6 @@
 {
   "name": "bsc-firestore-orm",
-  "version": "2.1.7",
+  "version": "2.1.12",
   "description": "BrentSys custom Firestor ORM",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -8,7 +8,7 @@
     "test": "jest --config jestconfig.json --detectOpenHandles --forceExit",
     "test:debug": "DEBUG=test:* jest --config jestconfig.json --detectOpenHandles --forceExit",
     "test:routes": "DEBUG=express:router:route jest --config jestconfig.json --detectOpenHandles --forceExit",
-    "test:suite": "DEBUG=test:* jest --config jestconfig.json --detectOpenHandles --forceExit src/__tests__/comment.repository.test.ts",
+    "test:suite": "DEBUG=test:* jest --config jestconfig.json --detectOpenHandles --forceExit src/__tests__/cities.group.test.ts",
     "build": "tsc",
     "format": "prettier --write \"src/**/*.ts\" \"src/**/*.js\"",
     "lint": "tslint -p tsconfig.json",

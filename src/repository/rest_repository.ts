@@ -1,14 +1,19 @@
-import { ModelSettings, RestApiSetting } from "../model";
+import { ModelSettings } from "../model";
 import { ModelDefinition } from "../model/model_definition";
-import { ID, ModelType, XQG } from "../types";
+import { ID, ModelType, QueryGroup } from "../types";
 import { BaseRepository, WID } from "./base_repository";
 import axios, { AxiosInstance, AxiosError, AxiosResponse } from 'axios'
 import { AuthError } from "../errors/auth_error";
 import debug from 'debug'
 import firebase from "firebase/compat";
 import { notEmpty } from "../utils";
+import { RestApiSetting } from "../types/rest_api";
 
 const dLog = debug("test:rest-repository")
+
+type AxiosHeaderValue = string | string[] | number | boolean | null;
+type RawAxiosHeaders = Record<string, AxiosHeaderValue>;
+
 
 export type RestDefinition = ModelDefinition & { settings: ModelSettings & { restApi: RestApiSetting } }
 
@@ -19,7 +24,7 @@ export abstract class RestRepository<T extends ModelType> extends BaseRepository
   constructor(definition: RestDefinition) {
     super()
     this.definition = definition
-    const headers = definition.settings.restApi.headers ?? {}
+    const headers: RawAxiosHeaders = definition.settings.restApi.headers ?? {}
     headers["Accept-Encoding"] = "gzip,deflate,compress"
     const restConfig = {
       baseURL: definition.settings.restApi.baseUrl,
@@ -72,7 +77,7 @@ export abstract class RestRepository<T extends ModelType> extends BaseRepository
     return [collPath, id].filter(notEmpty).join("/")
   }
 
-  getList: (queryGroup: XQG) => Promise<WID<T>[]> = async (qg) => {
+  getList: (queryGroup: QueryGroup) => Promise<WID<T>[]> = async (qg) => {
     dLog(`parent path = '${qg.parentPath}'`)
     const url = this.getUrl(qg.parentPath)
     dLog("getting list", url)

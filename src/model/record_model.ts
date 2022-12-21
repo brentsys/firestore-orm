@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { QueryGroup, SortField } from '../types/query.types';
+import { SortField } from '../types/query.types';
 import { AnyObject, DataObject } from '../types/common';
 import { ModelType } from '../types/model.types';
 import { Timestamp } from '../types/firestore';
+import { RestApiSetting } from '../types/rest_api';
 
 // export type Constructor = { new(...args: any[]): {} }
 
@@ -14,15 +15,6 @@ export interface DataSyncSettings {
   sort: SortField[];
 }
 
-export type HttpMethods = "GET" | "PUT" | "POST" | "PATCH" | "DELETE"
-
-export interface RestApiSetting {
-  baseUrl: string,
-  headers?: { [key: string]: string }
-  methods?: HttpMethods[]
-  filterPrefix?: string
-  paramSerialization?: (qg: QueryGroup) => string | AnyObject
-}
 export interface ModelSettings<T extends ModelType = any> {
   /**
    * Description of the model

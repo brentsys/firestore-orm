@@ -1,5 +1,5 @@
 import { ModelDefinition } from "../model";
-import { ID, ModelType, XQG } from "../types";
+import { BaseQueryGroup, ID, ModelType } from "../types";
 import { SetOptions } from "../types/firestore";
 
 export type WID<Q extends ModelType> = Q & { id: ID }
@@ -12,7 +12,7 @@ export abstract class BaseRepository<T extends ModelType> {
   abstract set: (record: Partial<T> & { id: ID }, options: SetOptions) => Promise<WID<T>>
   abstract add: (record: T) => Promise<WID<T>>
   abstract getById: (id: ID, parentPath: string | undefined) => Promise<WID<T>>
-  abstract getList: (queryGroup: XQG) => Promise<WID<T>[]>
+  abstract getList: (queryGroup: BaseQueryGroup) => Promise<WID<T>[]>
 
   getCollectionPath = (parentPath: string | undefined) =>
     parentPath ? [parentPath, this.definition.name].join("/") : this.definition.name

@@ -1,36 +1,36 @@
 import { AuthError } from '../errors/auth_error';
 import { ModelDefinition } from '../model';
-import {
-  DocumentReference,
-  QueryDocumentSnapshot,
-  SetOptions,
-} from '../types/firestore';
 import { ID, ModelType } from '../types/model.types';
-import { DocumentObserver, makeQuery, QueryGroup, QueryObserver } from '../types/query.types';
 import _ from 'lodash';
 import promiseSequential from 'promise-sequential';
-import { BaseRepository, WID } from './base_repository';
-import Firebase from 'firebase/compat/app'
+import { BaseRepository, WID } from '../repository/base_repository';
 import debug from "debug"
-import { FirestoreConverter } from '../model/firestore_converter';
+import Firebase from 'firebase/compat/app'
+import {
+  collection,
+  doc, getDoc, QueryDocumentSnapshot, onSnapshot, getDocs,
+  SetOptions, DocumentReference, addDoc, setDoc, deleteDoc, writeBatch
+} from 'firebase/firestore'
+import { ClientConverter } from './client_converter';
+import { DocumentObserver, makeQuery, QueryGroup, QueryObserver } from './client.query.types';
 import { FirebaseConfig } from '../config';
 
-const dLog = debug("test:repository")
+const dLog = debug("test:client:repository")
 
 const CHUNK_SIZE = 500;
 
-export abstract class Repository<T extends ModelType> extends BaseRepository<T> {
+export abstract class ClientRepository<T extends ModelType> extends BaseRepository<T> {
   abstract definition: ModelDefinition
 
   get db(): Firebase.firestore.Firestore {
     return FirebaseConfig.getDb()
   }
 
-  private _converter: FirestoreConverter<T> | undefined = undefined
-  get converter(): FirestoreConverter<T> {
+  private _converter: ClientConverter<T> | undefined = undefined
+  get converter(): ClientConverter<T> {
     let cv = this._converter
     if (!cv) {
-      cv = new FirestoreConverter<T>(this.definition)
+      cv = new ClientConverter<T>(this.definition)
       this._converter = cv
     }
     return cv
@@ -38,11 +38,12 @@ export abstract class Repository<T extends ModelType> extends BaseRepository<T> 
 
   getCollectionReference(parentPath: string | undefined) {
 
-    return this.db.collection(this.getCollectionPath(parentPath))
+    return collection(this.db, this.getCollectionPath(parentPath))
   }
 
   getById = async (id: ID, parentPath: string | undefined) => {
-    return this.getCollectionReference(parentPath).doc(`${id}`).withConverter(this.converter).get()
+    const docRef = doc(this.db, this.getCollectionPath(parentPath), `${id}`).withConverter(this.converter)
+    return getDoc(docRef)
       .then((snap) => {
         const record = snap.data()
         return record
@@ -64,18 +65,12 @@ export abstract class Repository<T extends ModelType> extends BaseRepository<T> 
   getSnapshot = async (queryGroup: QueryGroup<T>) => {
     const parent = queryGroup.parentPath ? queryGroup.parentPath : undefined
     const collRef = this.getCollectionReference(parent ?? undefined).withConverter(this.converter);
-    const query = makeQuery(collRef, queryGroup)
-    return query.get()
+    const q = makeQuery(collRef, queryGroup)
+    return getDocs(q)
   }
   getList = async (queryGroup: QueryGroup<T>) => {
     const snapshot = await this.getSnapshot(queryGroup)
     return snapshot.docs.map(this.fromQuerySnap);
-  }
-
-  getGroup = async (queryGroup: QueryGroup<T>) => {
-    const q0 = this.db.collectionGroup(this.definition.name).withConverter(this.converter)
-    const query = makeQuery(q0, queryGroup)
-    return query.get()
   }
 
   add = async (_data: T) => {
@@ -98,59 +93,58 @@ export abstract class Repository<T extends ModelType> extends BaseRepository<T> 
   private checkRecordId = async (record: Partial<T>) => {
     const id = record.id ?? this.getRecordId(record);
     if (id) {
-      const docSnap = await this.getCollectionReference(record.parentPath).doc(`${id}`).get()
-      if (docSnap.exists) return AuthError.reject(`record with id ${id} already exists`, 402);
+      const docSnap = await getDoc(this.documentReference(record))
+      if (docSnap.exists()) return AuthError.reject(`record with id ${id} already exists`, 402);
     }
     return Promise.resolve();
   };
 
   private getDocRefResult = async (docRef: DocumentReference<T>) => {
-    const result = (await docRef.get()).data()
+    const result = (await getDoc(docRef)).data()
     if (!result) return Promise.reject(new Error("Failed to save data"))
     return result as WID<T>
   }
 
   private addData = async (record: Partial<T>) => {
     const collRef = this.getCollectionReference(record.parentPath).withConverter(this.converter)
-    const data = this.beforeSave(record)
-    const docRef = await collRef.add(data as T)
+    const data = this.beforeSave(record) as T
+    const docRef = await addDoc(collRef, data)
     return this.getDocRefResult(docRef)
   };
 
   private setData = async (record: Partial<T>, options: SetOptions) => {
-    const docRef = this.documentReference(record)
-    await docRef.set(this.beforeSave(record), options)  // collRef.doc(id).set(data, options)
+    const docRef = this.documentReference(record).withConverter(this.converter)
+    const data = this.beforeSave(record) as T
+    await setDoc(docRef, data, options)  // docRef.set(this.beforeSave(record), options)  // collRef.doc(id).set(data, options)
     return this.getDocRefResult(docRef);
   };
 
   set = async (record: Partial<T> & { id: ID }, options: SetOptions) => {
-    const docRef = this.documentReference(record)
-    const data = await this.validateOnUpdate(this.beforeSave(record));
-    await docRef.set(data, options) // docRef.set(data, options);
+    const docRef = this.documentReference(record).withConverter(this.converter)
+    const data = await this.validateOnUpdate(this.beforeSave(record)) as T
+    await setDoc(docRef, data, options)
     return this.getById(record.id, record.parentPath);
   };
 
   delete: (id: ID | undefined, parentPath: string | undefined) => Promise<void> = async (id, parentPath) => {
-    if (!id) return AuthError.reject("Cannot delete undefined id")
-    const docRef = this.getCollectionReference(parentPath).doc(id.toString())
-    return docRef.delete()
+    const record = { id, parentPath } as T
+    return this.deleteRecord(record)
   };
 
   deleteRecord: (record: T) => Promise<void> = async (record) => {
     const { id } = record
     if (!id) return AuthError.reject("Cannot delete undefined ID")
     dLog("deleting", this.documentReference(record).path)
-    return this.documentReference(record).delete()
+    return deleteDoc(this.documentReference(record))
   };
 
   deleteGroup = (idx: ID[], parentPath: string | undefined) => {
-    const collRef = this.getCollectionReference(parentPath);
-
     const tasks = _.chunk(idx, CHUNK_SIZE).map((list) => {
       return () => {
-        const batch = this.db.batch()
+        const batch = writeBatch(this.db)
         list.forEach((_id) => {
-          batch.delete(collRef.doc(_id.toString()));
+          const docRef = this.documentReference({ id: _id, parentPath } as Partial<T>)
+          batch.delete(docRef);
         });
 
         return batch.commit();
@@ -165,15 +159,14 @@ export abstract class Repository<T extends ModelType> extends BaseRepository<T> 
   }
 
   documentReference = (record: Partial<T>) => {
-    const path = [this.getCollectionPath(record.parentPath), record.id].join("/")
-
-    return this.db.doc(path).withConverter(this.converter)
+    const id = `${record.id}`
+    return doc(this.getCollectionReference(record.parentPath), id)
   }
 
-  onSnapshot = (queryGroup: QueryGroup, observer: QueryObserver<T>) => {
-    const collRef = this.getCollectionReference(queryGroup.parentPath ?? undefined)
-    const query = makeQuery(collRef.withConverter(this.converter), queryGroup)
-    return query.onSnapshot({
+  onSnapshot = (queryGroup: QueryGroup<T>, observer: QueryObserver<T>) => {
+    const collRef = this.getCollectionReference(queryGroup.parentPath ?? undefined).withConverter(this.converter)
+    const q = makeQuery<T>(collRef, queryGroup)
+    onSnapshot(q, {
       ...observer,
       next: (snap) => {
         if (observer.next) observer.next(snap.docChanges())
@@ -182,9 +175,8 @@ export abstract class Repository<T extends ModelType> extends BaseRepository<T> 
   }
 
   onDocumentSnapshot = (record: T, observer: DocumentObserver<T>) => {
-    const docRef = this.documentReference(record)
+    const docRef = this.documentReference(record).withConverter(this.converter)
 
-    return docRef.onSnapshot(observer)
+    return onSnapshot(docRef, observer)
   }
-
 }

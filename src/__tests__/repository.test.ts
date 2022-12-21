@@ -1,14 +1,17 @@
 import { sample } from '../fixtures/fixture_data';
 import debug from "debug"
 import { DummyRepository } from '../fixtures/repositories/dummy_repository';
-import { getDb } from '../fixtures/repositories/firebase';
 import { Dummy } from '../fixtures/models/dummy';
 import _ from 'lodash'
 import { DocumentData } from '../types/firestore';
+import { FirebaseConfig } from '../config';
+import '../fixtures/repositories/firebase'
 
 const dLog = debug("test:orm-repository")
 
 const repo = new DummyRepository()
+
+const { getDb } = FirebaseConfig
 
 const getSnapData: (expected: Dummy) => Promise<[DocumentData | undefined, Partial<Dummy>]> = async (expected) => {
   const snap = await getDb().collection(repo.definition.name).doc(expected.name).get()

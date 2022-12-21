@@ -1,4 +1,4 @@
-import { HttpMethods } from "../model";
+import { HttpMethods } from "./rest_api";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Body = { [key: string]: any };

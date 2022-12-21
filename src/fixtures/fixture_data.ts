@@ -11,8 +11,13 @@ process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080';
 
 const collPath = "dummies"
 
-const app = admin.initializeApp({ projectId: ProjectId })
-const fb = app.firestore()
+let app: admin.app.App
+export let fb: admin.firestore.Firestore
+
+if (admin.apps.length === 0) {
+  app = admin.initializeApp({ projectId: ProjectId })
+  fb = app.firestore()
+}
 
 export const deleteAll = async () => {
   const collRef = fb.collection(collPath)

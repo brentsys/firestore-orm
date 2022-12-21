@@ -17,3 +17,4 @@ export type SetOptions = Firebase.firestore.SetOptions
 export type SnapshotOptions = Firebase.firestore.SnapshotOptions
 export type DocumentChange<T = DocumentData> = Firebase.firestore.DocumentChange<T>
 export type FirestoreError = Firebase.firestore.FirestoreError
+export type FieldValue = Firebase.firestore.FieldValue

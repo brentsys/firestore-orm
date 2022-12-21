@@ -1,7 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import {
+  DocumentSnapshot,
+  FieldPath, FirestoreError, OrderByDirection,
+  Query, query, where, orderBy, startAfter, limit,
+  QueryConstraint,
+  QueryDocumentSnapshot, WhereFilterOp, DocumentChange, DocumentData
+} from 'firebase/firestore';
 import _ from 'lodash';
-import { CollectionReference, DocumentChange, DocumentData, DocumentSnapshot, FieldPath, FirestoreError, OrderByDirection, Query, QueryDocumentSnapshot, WhereFilterOp } from './firestore';
-import { ModelType } from './model.types';
+import { BaseQueryGroup } from '../types';
+import { ModelType } from '../types/model.types';
 
 
 export type QueryTuple = [string | FieldPath, WhereFilterOp, any];
@@ -9,13 +16,6 @@ export type QueryVar = QueryTuple;
 export type OrderVar = [string | FieldPath, OrderByDirection];
 
 export type SortField = [string | FieldPath, OrderByDirection | undefined];
-
-export type BaseQueryGroup = {
-  parentPath?: string | null | undefined;
-  queries?: QueryTuple[];
-  sorts?: SortField[];
-  limit?: number;
-};
 
 export type QueryGroup<T extends ModelType = DocumentData> = BaseQueryGroup & {
   cursor?: DocumentSnapshot<T>;
@@ -62,20 +62,19 @@ const getFilterOp: (filter: KeyFilter) => QueryTuple = (filter) => {
   return [filter[0], filterOp, filter[1][1]];
 };
 
-export function toQueryGroup(filter: QueryFilter | undefined): QueryGroup {
-  const qg: QueryGroup = {};
+export function toQueryGroup(filter: QueryFilter | undefined): QueryGroup<DocumentSnapshot> {
+  const qg: QueryGroup<DocumentSnapshot> = {};
   if (!filter) return qg;
-  const { limit, sort, where } = filter;
-  if (limit) qg.limit = limit;
-  if (sort) {
+  if (filter.limit) qg.limit = filter.limit;
+  if (filter.sort) {
     const sortFields: SortField[] = [];
-    sort.forEach((order) => {
+    filter.sort.forEach((order) => {
       sortFields.push(order);
     });
     qg.sorts = sortFields;
   }
-  if (where) {
-    qg.queries = _.map(where, (value, key) => {
+  if (filter.where) {
+    qg.queries = _.map(filter.where, (value, key) => {
       const flt: KeyFilter = [key, value];
       return getFilterOp(flt);
     });
@@ -96,16 +95,17 @@ export type DocumentObserver<T> = {
 }
 
 
-export const makeQuery = <T extends ModelType = DocumentData>(qry: CollectionReference<T> | Query<T>, queryGroup: QueryGroup) => {
+export const makeQuery = <T extends ModelType = DocumentData>(qry: Query<T>, queryGroup: QueryGroup<T>) => {
+  const queryConstraints: QueryConstraint[] = []
   const sorts = queryGroup.sorts || []
   const queries = queryGroup.queries || []
-  queries.forEach(q => qry = qry.where(q[0], q[1], q[2]))
-  sorts.forEach(s => qry = qry.orderBy(s[0], s[1]))
+  queries.forEach(q => queryConstraints.push(where(q[0], q[1], q[2])))
+  sorts.forEach(s => queryConstraints.push(orderBy(s[0], s[1])))
   if (queryGroup.cursor) {
     // const lastVisible = ref.doc(`${queryGroup.cursorId}`)
-    qry = qry.startAfter(queryGroup.cursor)
+    queryConstraints.push(startAfter(queryGroup.cursor))
   }
-  if (queryGroup.limit) qry = qry.limit(queryGroup.limit)
+  if (queryGroup.limit) queryConstraints.push(limit(queryGroup.limit))
 
-  return qry
+  return query(qry, ...queryConstraints)
 }
