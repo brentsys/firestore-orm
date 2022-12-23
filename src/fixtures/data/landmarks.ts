@@ -43,6 +43,10 @@ export const makeLandmarks = async () => {
     name: 'Beijing Ancient Observatory',
     type: 'museum'
   });
+  await db.collection('landmarks').doc("orphan").set({
+    name: 'Anonymous Center',
+    type: 'museum'
+  });
 }
 
 export async function deleteLandmarks() {

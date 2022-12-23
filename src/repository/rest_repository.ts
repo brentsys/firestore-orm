@@ -2,12 +2,12 @@ import { ModelSettings } from "../model";
 import { ModelDefinition } from "../model/model_definition";
 import { ID, ModelType, QueryGroup } from "../types";
 import { BaseRepository, WID } from "./base_repository";
-import axios, { AxiosInstance, AxiosError, AxiosResponse } from 'axios'
+import axios, { AxiosInstance, AxiosError, AxiosResponse, AxiosRequestConfig } from 'axios'
 import { AuthError } from "../errors/auth_error";
 import debug from 'debug'
-import firebase from "firebase/compat";
 import { notEmpty } from "../utils";
 import { RestApiSetting } from "../types/rest_api";
+import { SetOptions } from "../types/request";
 
 const dLog = debug("test:rest-repository")
 
@@ -77,52 +77,58 @@ export abstract class RestRepository<T extends ModelType> extends BaseRepository
     return [collPath, id].filter(notEmpty).join("/")
   }
 
-  async getList(queryGroup: QueryGroup): Promise<WID<T>[]> {
+  getAuthConfig(token: string | undefined): AxiosRequestConfig | undefined {
+    return token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+  }
+
+
+  async getList(queryGroup: QueryGroup, token?: string | undefined): Promise<WID<T>[]> {
     dLog(`parent path = '${queryGroup.parentPath}'`)
     const url = this.getUrl(queryGroup.parentPath)
     dLog("getting list", url)
-    const request = this.rest.get<WID<T>[]>(url)
+    const request = this.rest.get<WID<T>[]>(url, this.getAuthConfig(token))
     return this.processAxios(request, queryGroup.parentPath)
   }
 
-  async getById(id: ID, parent: string | undefined): Promise<WID<T>> {
-    const request = this.rest.get<WID<T>>(this.getUrl(parent, id))
+  async getById(id: ID, parent: string | undefined, token?: string | undefined): Promise<WID<T>> {
+    const request = this.rest.get<WID<T>>(this.getUrl(parent, id), this.getAuthConfig(token))
     return this.processAxios(request, parent)
   }
 
-  async add(record: T): Promise<T & { id: ID }> {
+  async add(record: T, token?: string | undefined): Promise<T & { id: ID }> {
     dLog("record to save = ", record)
     const data = await this.validateOnCreate(this.beforeSave(record));
     const parent = record._parentPath
     dLog("add url = ", this.getUrl(parent))
-    const request = this.rest.post<T & { id: ID }>(this.getUrl(parent), data)
+    const request = this.rest.post<T & { id: ID }>(this.getUrl(parent), data, this.getAuthConfig(token))
     return this.processAxios(request, parent)
   }
 
-  override async set(record: Partial<T> & { id: ID }, options: firebase.firestore.SetOptions): Promise<T & { id: ID }> {
+  override async set(record: Partial<T> & { id: ID }, options: SetOptions, token?: string | undefined): Promise<T & { id: ID }> {
     const data = await this.validateOnCreate(this.beforeSave(record));
     const id = record.id
     const parent = record._parentPath
-    const request = this.rest.post<T & { id: ID }>(this.getUrl(parent, id), data)
+    const fn = options.merge ? this.rest.patch : this.rest.post
+    const request = fn<T & { id: ID }>(this.getUrl(parent, id), data, this.getAuthConfig(token))
     return this.processAxios(request, parent)
   }
 
-  override async delete(id: ID, parent: string | undefined): Promise<void> {
+  override async delete(id: ID, parent: string | undefined, token?: string | undefined): Promise<void> {
     const url = this.getUrl(parent, id)
     dLog("deleting", url)
-    const request = this.rest.delete<void>(url)
+    const request = this.rest.delete<void>(url, this.getAuthConfig(token))
     return this.processAxios(request, parent)
   }
 
-  async deleteRecord(record: T): Promise<void> {
+  async deleteRecord(record: T, token?: string | undefined): Promise<void> {
     const url = "/" + this.getDocumentPath(record)
     dLog("delete url = ", url)
-    const request = this.rest.delete<void>(url)
+    const request = this.rest.delete<void>(url, this.getAuthConfig(token))
     return this.processAxios(request, null)
   }
 
-  async deleteGroup(idx: ID[], parent: string | undefined): Promise<unknown> {
-    const promises = idx.map(id => this.delete(id, parent))
+  async deleteGroup(idx: ID[], parent: string | undefined, token?: string | undefined): Promise<unknown> {
+    const promises = idx.map(id => this.delete(id, parent, token))
     return Promise.all(promises)
   }
 }

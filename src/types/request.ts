@@ -13,4 +13,6 @@ export interface Request extends Express.Request {
   originalUrl: string
 }
 
+export type SetOptions = { merge?: boolean }
+
 // export type Request<T extends Body> = Express.Request & T

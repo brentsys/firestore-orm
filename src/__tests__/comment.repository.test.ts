@@ -66,7 +66,7 @@ describe("Post Repository", () => {
     async function delObjects() {
       // looks like post and comments are automatically deleted
       dLog("should be deleting user", users)
-      await Promise.all(users.map(userRepo.deleteRecord))
+      await Promise.all(users.map(u => userRepo.deleteRecord(u)))
     }
     waitRemote()
       .then(() => delObjects())

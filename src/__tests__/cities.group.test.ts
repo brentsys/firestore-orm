@@ -3,6 +3,8 @@ import { LandmarkRepository } from '../fixtures/repositories/landmark.repository
 import debug from "debug"
 import { deleteCities, makeCities } from '../fixtures/data/cities'
 import { deleteLandmarks, makeLandmarks } from '../fixtures/data/landmarks'
+import { QueryGroup } from '../types'
+import { Landmark } from '../fixtures/models/landmark'
 
 const dLog = debug("test:test:landmark-repository")
 
@@ -33,10 +35,18 @@ describe('Cities group Repository', () => {
   })
 
 
-  it("should show group", async () => {
+  it.skip("should show group", async () => {
     const landmards = await repo.getGroupModel({ queries: [["type", "==", "museum"]] })
     dLog("landmars: ", landmards)
     expect(landmards.length).toEqual(5)
+  })
+
+  it("should show only children", async () => {
+    const qg: QueryGroup<Landmark> = { parentPath: 'cities/LA' }
+    const list = await repo.getList(qg)
+    expect(list.length).toEqual(2)
+    const orphans = await repo.getList({})
+    expect(orphans.length).toEqual(1)
   })
 })
 
