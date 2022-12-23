@@ -55,7 +55,7 @@ export const makePost: (user: User) => Post = (user) => {
   return {
     title: faker.lorem.sentence(),
     body: faker.lorem.sentence(2),
-    parentPath: repo.getDocumentPath(user)
+    _parentPath: repo.getDocumentPath(user)
   }
 }
 
@@ -65,7 +65,7 @@ const makeComment: (post: Post) => Comment = (post) => {
     name: faker.name.fullName(),
     email: faker.internet.email(),
     body: faker.lorem.sentences(2),
-    parentPath: postRepo.getDocumentPath(post)
+    _parentPath: postRepo.getDocumentPath(post)
   }
 }
 

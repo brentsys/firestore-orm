@@ -19,8 +19,8 @@ describe("Controller tools", () => {
     const url = '/model/modelId/dummies/dummyId/devices/deviceId'
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const req = { originalUrl: url } as AppRequest
-    const parentPath = controller.getParentPath(req)
-    expect(parentPath).toEqual('model/modelId/dummies/dummyId')
+    const _parentPath = controller.getParentPath(req)
+    expect(_parentPath).toEqual('model/modelId/dummies/dummyId')
   })
 })
 
@@ -43,7 +43,7 @@ describe('Dummy Endpoints', () => {
     const res = await requestWithSupertest.get('/dummies/java');
     expect(res.status).toEqual(200);
     expect(res.type).toEqual(expect.stringContaining('json'));
-    expect(res.body).not.toHaveProperty("parentPath")
+    expect(res.body).not.toHaveProperty("_parentPath")
     expect(res.body).toHaveProperty("url")
   });
 
@@ -69,14 +69,14 @@ describe('Dummy Endpoints', () => {
 describe('Devices endpoints', () => {
 
   const repo = new DeviceRepository()
-  const parentPath = "dummies/dummyPath"
+  const _parentPath = "dummies/dummyPath"
   const devices: WID<Device>[] = []
 
   beforeAll((done) => {
-    repo.add({ model: "Redmi note 10", size: 5.5, parentPath })
+    repo.add({ model: "Redmi note 10", size: 5.5, _parentPath })
       .then(res => {
         devices.push(res)
-        return repo.add({ model: "Hwawei Mate pro", size: 7.0, parentPath })
+        return repo.add({ model: "Hwawei Mate pro", size: 7.0, _parentPath })
       })
       .then(res => {
         devices.push(res)
@@ -105,14 +105,14 @@ describe('Devices endpoints', () => {
   it("should get correct parent path", async () => {
     expect(devices.length).toEqual(2)
     const id = devices[0].id
-    const path = [parentPath, "devices"].join("/")
+    const path = [_parentPath, "devices"].join("/")
     const res = await requestWithSupertest.get(["", path, id].join("/"));
     expect(res.status).toEqual(200);
-    expect(res.body.parentPath).toEqual(parentPath);
+    expect(res.body._parentPath).toEqual(_parentPath);
   })
 
   it("should get devices", async () => {
-    const url = ["", parentPath, "devices"].join("/")
+    const url = ["", _parentPath, "devices"].join("/")
     const res = await requestWithSupertest.get(url);
     expect(res.status).toEqual(200);
     expect(res.body).toBeInstanceOf(Array)
@@ -122,8 +122,8 @@ describe('Devices endpoints', () => {
   it("should delete device", async () => {
     const dev = devices[0]
     await repo.deleteRecord(dev)
-    //const res = await repo.getById(dev.id, parentPath)
+    //const res = await repo.getById(dev.id, _parentPath)
     //expect(res).toBeUndefined()
-    expect(repo.getById(dev.id, dev.parentPath)).rejects.toThrow("Record not found")
+    expect(repo.getById(dev.id, dev._parentPath)).rejects.toThrow("Record not found")
   })
 })

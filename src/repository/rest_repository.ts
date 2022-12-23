@@ -43,7 +43,7 @@ export abstract class RestRepository<T extends ModelType> extends BaseRepository
   }
 
   addCollectionPath(record: T, parent: string | null | undefined) {
-    if (parent) record.parentPath = parent
+    if (parent) record._parentPath = parent
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -93,7 +93,7 @@ export abstract class RestRepository<T extends ModelType> extends BaseRepository
   async add(record: T): Promise<T & { id: ID }> {
     dLog("record to save = ", record)
     const data = await this.validateOnCreate(this.beforeSave(record));
-    const parent = record.parentPath
+    const parent = record._parentPath
     dLog("add url = ", this.getUrl(parent))
     const request = this.rest.post<T & { id: ID }>(this.getUrl(parent), data)
     return this.processAxios(request, parent)
@@ -102,7 +102,7 @@ export abstract class RestRepository<T extends ModelType> extends BaseRepository
   override async set(record: Partial<T> & { id: ID }, options: firebase.firestore.SetOptions): Promise<T & { id: ID }> {
     const data = await this.validateOnCreate(this.beforeSave(record));
     const id = record.id
-    const parent = record.parentPath
+    const parent = record._parentPath
     const request = this.rest.post<T & { id: ID }>(this.getUrl(parent, id), data)
     return this.processAxios(request, parent)
   }

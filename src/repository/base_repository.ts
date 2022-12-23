@@ -19,7 +19,7 @@ export abstract class BaseRepository<T extends ModelType> {
   }
 
   getDocumentPath(record: T) {
-    return [this.getCollectionPath(record.parentPath), record.id].join("/")
+    return [this.getCollectionPath(record._parentPath), record.id].join("/")
 
   }
 

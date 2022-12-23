@@ -106,7 +106,7 @@ export abstract class ClientRepository<T extends ModelType> extends BaseReposito
   }
 
   private addData = async (record: Partial<T>) => {
-    const collRef = this.getCollectionReference(record.parentPath).withConverter(this.converter)
+    const collRef = this.getCollectionReference(record._parentPath).withConverter(this.converter)
     const data = this.beforeSave(record) as T
     const docRef = await addDoc(collRef, data)
     return this.getDocRefResult(docRef)
@@ -123,11 +123,11 @@ export abstract class ClientRepository<T extends ModelType> extends BaseReposito
     const docRef = this.documentReference(record).withConverter(this.converter)
     const data = await this.validateOnUpdate(this.beforeSave(record)) as T
     await setDoc(docRef, data, options)
-    return this.getById(record.id, record.parentPath);
+    return this.getById(record.id, record._parentPath);
   };
 
   delete: (id: ID | undefined, parentPath: string | undefined) => Promise<void> = async (id, parentPath) => {
-    const record = { id, parentPath } as T
+    const record = { id, _parentPath: parentPath } as T
     return this.deleteRecord(record)
   };
 
@@ -143,7 +143,7 @@ export abstract class ClientRepository<T extends ModelType> extends BaseReposito
       return () => {
         const batch = writeBatch(this.db)
         list.forEach((_id) => {
-          const docRef = this.documentReference({ id: _id, parentPath } as Partial<T>)
+          const docRef = this.documentReference({ id: _id, _parentPath: parentPath } as Partial<T>)
           batch.delete(docRef);
         });
 
@@ -160,7 +160,7 @@ export abstract class ClientRepository<T extends ModelType> extends BaseReposito
 
   documentReference = (record: Partial<T>) => {
     const id = `${record.id}`
-    return doc(this.getCollectionReference(record.parentPath), id)
+    return doc(this.getCollectionReference(record._parentPath), id)
   }
 
   onSnapshot = (queryGroup: QueryGroup<T>, observer: QueryObserver<T>) => {

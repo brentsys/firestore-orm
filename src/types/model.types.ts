@@ -6,7 +6,7 @@ export type ID = string | number
 
 export type ModelType = {
   id?: ID;
-  parentPath?: string
+  _parentPath?: string
 };
 
 export interface RecordType extends ModelType {

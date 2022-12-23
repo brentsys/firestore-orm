@@ -28,7 +28,7 @@ export class FirestoreConverter<T extends ModelType> implements FirestoreDataCon
     if (options && Object.keys(options).length) {
       dLog("options ", options, " not yet implemented")
     }
-    const transients = _.uniq(_.concat(["id", "collectionPath"], this.transientFields))
+    const transients = _.uniq(_.concat(["id", "_parentPath"], this.transientFields))
     dLog("==> transients = ", transients)
 
     return _.omit(data, transients)
@@ -39,9 +39,9 @@ export class FirestoreConverter<T extends ModelType> implements FirestoreDataCon
       dLog("SnapshotOptions", options, "not implemented here", Object.keys(options))
     }
     const record = snapshot.data() as T
-    const parentPath = snapshot.ref.path.split("/").slice(0, -2).join("/")
+    const _parentPath = snapshot.ref.path.split("/").slice(0, -2).join("/")
     const { id } = snapshot
-    const model = parentPath ? { ...record, id, parentPath } : { ...record, id }
+    const model: T = _parentPath ? { ...record, id, _parentPath } : { ...record, id }
     if (this.postInit) this.postInit(model)
 
     return model

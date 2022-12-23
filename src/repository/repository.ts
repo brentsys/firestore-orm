@@ -72,10 +72,15 @@ export abstract class Repository<T extends ModelType> extends BaseRepository<T> 
     return snapshot.docs.map(this.fromQuerySnap);
   }
 
-  async getGroup(queryGroup: QueryGroup<T>) {
+  async getGroupSnap(queryGroup: QueryGroup<T>) {
     const q0 = this.db.collectionGroup(this.definition.name).withConverter(this.converter)
     const query = makeQuery(q0, queryGroup)
     return query.get()
+  }
+
+  async getGroupModel(queryGroup: QueryGroup<T>) {
+    const snaps = await this.getGroupSnap(queryGroup)
+    return snaps.docs.map(doc => doc.data())
   }
 
   async add(_data: T) {
@@ -98,7 +103,7 @@ export abstract class Repository<T extends ModelType> extends BaseRepository<T> 
   private checkRecordId = async (record: Partial<T>) => {
     const id = record.id ?? this.getRecordId(record);
     if (id) {
-      const docSnap = await this.getCollectionReference(record.parentPath).doc(`${id}`).get()
+      const docSnap = await this.getCollectionReference(record._parentPath).doc(`${id}`).get()
       if (docSnap.exists) return AuthError.reject(`record with id ${id} already exists`, 402);
     }
     return Promise.resolve();
@@ -111,7 +116,7 @@ export abstract class Repository<T extends ModelType> extends BaseRepository<T> 
   }
 
   private addData = async (record: Partial<T>) => {
-    const collRef = this.getCollectionReference(record.parentPath).withConverter(this.converter)
+    const collRef = this.getCollectionReference(record._parentPath).withConverter(this.converter)
     const data = this.beforeSave(record)
     const docRef = await collRef.add(data as T)
     return this.getDocRefResult(docRef)
@@ -127,7 +132,7 @@ export abstract class Repository<T extends ModelType> extends BaseRepository<T> 
     const docRef = this.documentReference(record)
     const data = await this.validateOnUpdate(this.beforeSave(record));
     await docRef.set(data, options) // docRef.set(data, options);
-    return this.getById(record.id, record.parentPath);
+    return this.getById(record.id, record._parentPath);
   }
 
   async delete(id: ID | undefined, parentPath: string | undefined): Promise<void> {
@@ -165,7 +170,7 @@ export abstract class Repository<T extends ModelType> extends BaseRepository<T> 
   }
 
   documentReference(record: Partial<T>) {
-    const path = [this.getCollectionPath(record.parentPath), record.id].join("/")
+    const path = [this.getCollectionPath(record._parentPath), record.id].join("/")
 
     return this.db.doc(path).withConverter(this.converter)
   }

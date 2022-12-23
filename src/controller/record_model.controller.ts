@@ -128,7 +128,7 @@ export abstract class RecordModelController<Q extends ModelType> {
 
   protected getPostData(req: Request): Promise<Partial<Q>> {
     const data = this.getData(req);
-    data.parentPath = this.getParentPath(req)
+    data._parentPath = this.getParentPath(req)
     const res = this.postRequired.reduce((acc: string[], key: string) => {
       if (_.get(data, key) === undefined) acc.push(key);
       return acc;
@@ -147,7 +147,7 @@ export abstract class RecordModelController<Q extends ModelType> {
     const data = this.getUpdatableData(req);
     const id = req.params.id
     if (id) return Promise.reject(new Error("Id cannot be undefined for set"))
-    const record: Partial<Q> & { id: ID } = { ...data, id, parentPath: query.parentPath }
+    const record: Partial<Q> & { id: ID } = { ...data, id, _parentPath: query.parentPath }
     return this.repo.set(record, { merge: true })
   }
 

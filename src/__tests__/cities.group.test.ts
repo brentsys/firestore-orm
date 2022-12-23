@@ -34,8 +34,7 @@ describe('Cities group Repository', () => {
 
 
   it("should show group", async () => {
-    const snap = await repo.getGroup({ queries: [["type", "==", "museum"]] })
-    const landmards = snap.docs.map(doc => doc.data())
+    const landmards = await repo.getGroupModel({ queries: [["type", "==", "museum"]] })
     dLog("landmars: ", landmards)
     expect(landmards.length).toEqual(5)
   })
