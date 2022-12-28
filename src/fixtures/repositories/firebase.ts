@@ -48,7 +48,8 @@ export function getRestDefinition(name: string): RestDefinition {
         headers: {
           'Accept': "application/json",
           'Content-type': "application/json",
-          'Authorization': `Bearer ${process.env.gorest_access_token}`
+          'Authorization': `Bearer ${process.env.gorest_access_token}`,
+          'Accept-Encoding': "gzip,deflate,compress"
         }
       }
     }

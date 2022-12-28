@@ -20,13 +20,11 @@ export type RestDefinition = ModelDefinition & { settings: ModelSettings & { res
 export abstract class RestRepository<T extends ModelType> extends BaseRepository<T> {
   definition: RestDefinition
   rest: AxiosInstance
-  acceptEncoding = true
 
   constructor(definition: RestDefinition) {
     super()
     this.definition = definition
     const headers: RawAxiosHeaders = definition.settings.restApi.headers ?? {}
-    if (this.acceptEncoding) headers["Accept-Encoding"] = "gzip,deflate,compress"
     const restConfig = {
       baseURL: definition.settings.restApi.baseUrl,
       headers,
