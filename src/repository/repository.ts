@@ -6,7 +6,7 @@ import {
   SetOptions,
 } from '../types/firestore';
 import { ID, ModelType } from '../types/model.types';
-import { DocumentObserver, makeQuery, QueryGroup, QueryObserver } from '../types/query.types';
+import { BaseQueryGroup, DocumentObserver, makeQuery, QueryGroup, QueryObserver } from '../types/query.types';
 import _ from 'lodash';
 import promiseSequential from 'promise-sequential';
 import { BaseRepository, WID } from './base_repository';
@@ -21,9 +21,22 @@ const CHUNK_SIZE = 500;
 
 export abstract class Repository<T extends ModelType> extends BaseRepository<T> {
   abstract definition: ModelDefinition
+  qg: QueryGroup<T> = {}
 
   get db(): Firebase.firestore.Firestore {
     return FirebaseConfig.getDb()
+  }
+
+
+  makeQueryGoup(qg: QueryGroup<T>): BaseQueryGroup {
+    const parentPath = this.qg.parentPath ?? qg.parentPath
+    const queries = _.concat(qg.queries ?? [], this.qg.queries ?? [])
+    const sorts = _.concat(qg.sorts ?? [], this.qg.sorts ?? [])
+    const limit = qg.limit ?? this.qg.limit
+    const newQG = { ...qg, parentPath, sorts, limit }
+    if (queries.length > 0) newQG.queries = queries
+
+    return newQG
   }
 
   private _converter: FirestoreConverter<T> | undefined = undefined
@@ -34,6 +47,12 @@ export abstract class Repository<T extends ModelType> extends BaseRepository<T> 
       this._converter = cv
     }
     return cv
+  }
+
+  getCollectionPath(parentPath?: string | undefined): string {
+    const _qg = this.makeQueryGoup({ parentPath })
+
+    return super.getCollectionPath(_qg.parentPath ?? undefined)
   }
 
   getCollectionReference(parentPath: string | undefined) {
@@ -55,26 +74,27 @@ export abstract class Repository<T extends ModelType> extends BaseRepository<T> 
     return this.getById(id, parentPath).catch(() => Promise.resolve(undefined));
   }
 
-  fromQuerySnap: (doc: QueryDocumentSnapshot<T>) => WID<T> = (_doc) => {
-    const data = _doc.data() || {}
-    data.id = _doc.id;
-    return data as WID<T>;
-  };
-
   async getSnapshot(queryGroup: QueryGroup<T>) {
-    const parent = queryGroup.parentPath ? queryGroup.parentPath : undefined
-    const collRef = this.getCollectionReference(parent ?? undefined).withConverter(this.converter);
-    const query = makeQuery(collRef, queryGroup)
+    const _qg = this.makeQueryGoup(queryGroup)
+    const collRef = this.getCollectionReference(_qg.parentPath ?? undefined).withConverter(this.converter)
+    const query = makeQuery(collRef, _qg)
+
     return query.get()
   }
+
   async getList(queryGroup: QueryGroup<T>) {
-    const snapshot = await this.getSnapshot(queryGroup)
-    return snapshot.docs.map(this.fromQuerySnap);
+    return this.getSnapshot(queryGroup)
+      .then(snaps => {
+        const records = snaps.docs.map(doc => doc.data() as WID<T>)
+
+        return Promise.resolve(records)
+      })
   }
 
   async getGroupSnap(queryGroup: QueryGroup<T>) {
+    const _qg = this.makeQueryGoup(queryGroup)
     const q0 = this.db.collectionGroup(this.definition.name).withConverter(this.converter)
-    const query = makeQuery(q0, queryGroup)
+    const query = makeQuery(q0, _qg)
     return query.get()
   }
 
@@ -175,9 +195,10 @@ export abstract class Repository<T extends ModelType> extends BaseRepository<T> 
     return this.db.doc(path).withConverter(this.converter)
   }
 
-  onSnapshot(queryGroup: QueryGroup, observer: QueryObserver<T>) {
+  onSnapshot(queryGroup: QueryGroup<T>, observer: QueryObserver<T>) {
+    const _qg = this.makeQueryGoup(queryGroup)
     const collRef = this.getCollectionReference(queryGroup.parentPath ?? undefined)
-    const query = makeQuery(collRef.withConverter(this.converter), queryGroup)
+    const query = makeQuery(collRef.withConverter(this.converter), _qg)
     return query.onSnapshot({
       ...observer,
       next: (snap) => {

@@ -25,7 +25,6 @@ export abstract class RestRepository<T extends ModelType> extends BaseRepository
     super()
     this.definition = definition
     const headers: RawAxiosHeaders = definition.settings.restApi.headers ?? {}
-    headers["Accept-Encoding"] = "gzip,deflate,compress"
     const restConfig = {
       baseURL: definition.settings.restApi.baseUrl,
       headers,

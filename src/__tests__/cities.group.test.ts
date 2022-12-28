@@ -35,10 +35,10 @@ describe('Cities group Repository', () => {
   })
 
 
-  it.skip("should show group", async () => {
+  it("should show group", async () => {
     const landmards = await repo.getGroupModel({ queries: [["type", "==", "museum"]] })
     dLog("landmars: ", landmards)
-    expect(landmards.length).toEqual(5)
+    expect(landmards.length).toEqual(6)
   })
 
   it("should show only children", async () => {
