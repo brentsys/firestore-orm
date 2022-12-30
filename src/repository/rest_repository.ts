@@ -112,7 +112,7 @@ export abstract class RestRepository<T extends ModelType> extends BaseRepository
     return this.processAxios(request, parent)
   }
   async put(record: Partial<T> & { id: ID }, token?: string | undefined): Promise<T & { id: ID }> {
-    const data = await this.validateOnCreate(this.beforeSave(record));
+    const data = await this.validateOnUpdate(this.beforeSave(record))
     const id = record.id
     const parent = record._parentPath
     const request = this.rest.put(this.getUrl(parent, id), data, this.getAuthConfig(token))
