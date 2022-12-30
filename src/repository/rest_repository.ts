@@ -111,6 +111,13 @@ export abstract class RestRepository<T extends ModelType> extends BaseRepository
     const request = fn<T & { id: ID }>(this.getUrl(parent, id), data, this.getAuthConfig(token))
     return this.processAxios(request, parent)
   }
+  async put(record: Partial<T> & { id: ID }, token?: string | undefined): Promise<T & { id: ID }> {
+    const data = await this.validateOnCreate(this.beforeSave(record));
+    const id = record.id
+    const parent = record._parentPath
+    const request = this.rest.put(this.getUrl(parent, id), data, this.getAuthConfig(token))
+    return this.processAxios(request, parent)
+  }
 
   override async delete(id: ID, parent: string | undefined, token?: string | undefined): Promise<void> {
     const url = this.getUrl(parent, id)
