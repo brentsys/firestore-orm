@@ -20,7 +20,7 @@ export type RestDefinition = ModelDefinition & { settings: ModelSettings & { res
 export abstract class RestRepository<T extends ModelType, Input = Partial<T>> extends BaseRepository<T, Input> {
   definition: RestDefinition
   rest: AxiosInstance
-  qg: QueryGroup<T> = {}
+  qg: QueryGroup = {}
 
   constructor(definition: RestDefinition) {
     super()

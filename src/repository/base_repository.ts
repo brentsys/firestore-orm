@@ -8,7 +8,7 @@ export type WID<Q extends ModelType> = Q & { id: ID }
 
 export abstract class BaseRepository<T extends ModelType, Input = Partial<T>> {
   abstract definition: ModelDefinition;
-  abstract qg: QueryGroup<T>
+  abstract qg: QueryGroup
   abstract formConverter(data: Input): Partial<T>
   abstract deleteRecord(record: T, token?: string | undefined): Promise<void>
   abstract deleteGroup(idx: ID[], parentPath: string | undefined, token?: string | undefined): Promise<unknown>
