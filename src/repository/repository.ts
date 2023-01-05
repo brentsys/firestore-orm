@@ -6,7 +6,7 @@ import {
   SetOptions,
 } from '../types/firestore';
 import { ID, ModelType } from '../types/model.types';
-import { BaseQueryGroup, DocumentObserver, makeQuery, QueryGroup, QueryObserver } from '../types/query.types';
+import { DocumentObserver, makeQuery, QueryGroup, QueryObserver } from '../types/query.types';
 import _ from 'lodash';
 import promiseSequential from 'promise-sequential';
 import { BaseRepository, WID } from './base_repository';
@@ -21,22 +21,13 @@ const CHUNK_SIZE = 500;
 
 export abstract class Repository<T extends ModelType> extends BaseRepository<T> {
   abstract definition: ModelDefinition
+  formConverter(data: T): Partial<T> {
+    return data
+  }
   qg: QueryGroup<T> = {}
 
   get db(): Firebase.firestore.Firestore {
     return FirebaseConfig.getDb()
-  }
-
-
-  makeQueryGoup(qg: QueryGroup<T>): BaseQueryGroup {
-    const parentPath = this.qg.parentPath ?? qg.parentPath
-    const queries = _.concat(qg.queries ?? [], this.qg.queries ?? [])
-    const sorts = _.concat(qg.sorts ?? [], this.qg.sorts ?? [])
-    const limit = qg.limit ?? this.qg.limit
-    const newQG = { ...qg, parentPath, sorts, limit }
-    if (queries.length > 0) newQG.queries = queries
-
-    return newQG
   }
 
   private _converter: FirestoreConverter<T> | undefined = undefined

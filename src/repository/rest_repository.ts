@@ -17,9 +17,10 @@ type RawAxiosHeaders = Record<string, AxiosHeaderValue>;
 
 export type RestDefinition = ModelDefinition & { settings: ModelSettings & { restApi: RestApiSetting } }
 
-export abstract class RestRepository<T extends ModelType> extends BaseRepository<T> {
+export abstract class RestRepository<T extends ModelType, Input = Partial<T>> extends BaseRepository<T, Input> {
   definition: RestDefinition
   rest: AxiosInstance
+  qg: QueryGroup<T> = {}
 
   constructor(definition: RestDefinition) {
     super()
@@ -94,7 +95,8 @@ export abstract class RestRepository<T extends ModelType> extends BaseRepository
     return this.processAxios(request, parent)
   }
 
-  async add(record: T, token?: string | undefined): Promise<T & { id: ID }> {
+  async add(input: Input, token?: string | undefined): Promise<T & { id: ID }> {
+    const record = this.formConverter(input)
     dLog("record to save = ", record)
     const data = await this.validateOnCreate(this.beforeSave(record));
     const parent = record._parentPath
@@ -103,7 +105,8 @@ export abstract class RestRepository<T extends ModelType> extends BaseRepository
     return this.processAxios(request, parent)
   }
 
-  override async set(record: Partial<T> & { id: ID }, options: SetOptions, token?: string | undefined): Promise<T & { id: ID }> {
+  override async set(input: Input & { id: ID }, options: SetOptions, token?: string | undefined): Promise<T & { id: ID }> {
+    const record = this.formConverter(input)
     const data = await this.validateOnCreate(this.beforeSave(record));
     const id = record.id
     const parent = record._parentPath
@@ -111,7 +114,8 @@ export abstract class RestRepository<T extends ModelType> extends BaseRepository
     const request = fn<T & { id: ID }>(this.getUrl(parent, id), data, this.getAuthConfig(token))
     return this.processAxios(request, parent)
   }
-  async put(record: Partial<T> & { id: ID }, token?: string | undefined): Promise<T & { id: ID }> {
+  async put(input: Input & { id: ID }, token?: string | undefined): Promise<T & { id: ID }> {
+    const record = this.formConverter(input)
     const data = await this.validateOnUpdate(this.beforeSave(record))
     const id = record.id
     const parent = record._parentPath
