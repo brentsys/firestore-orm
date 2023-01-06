@@ -81,64 +81,74 @@ export abstract class RestRepository<T extends ModelType, Input = Partial<T>> ex
     return token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
   }
 
+  getConfig(token: string | undefined, params: AxiosRequestConfig | undefined): AxiosRequestConfig | undefined {
+    const authConfig = this.getAuthConfig(token)
+    if (!authConfig) return params
+    const _params = params ?? {}
 
-  async getList(queryGroup: QueryGroup, token?: string | undefined): Promise<WID<T>[]> {
+    return { ..._params, headers: authConfig.headers }
+  }
+
+
+
+
+  async getList(queryGroup: QueryGroup, token?: string | undefined, params?: AxiosRequestConfig | undefined): Promise<WID<T>[]> {
     dLog(`parent path = '${queryGroup.parentPath}'`)
     const url = this.getUrl(queryGroup.parentPath)
     dLog("getting list", url)
-    const request = this.rest.get<WID<T>[]>(url, this.getAuthConfig(token))
+    const request = this.rest.get<WID<T>[]>(url, this.getConfig(token, params))
     return this.processAxios(request, queryGroup.parentPath)
   }
 
-  async getById(id: ID, parent: string | undefined, token?: string | undefined): Promise<WID<T>> {
-    const request = this.rest.get<WID<T>>(this.getUrl(parent, id), this.getAuthConfig(token))
+  async getById(id: ID, parent: string | undefined, token?: string | undefined, params?: AxiosRequestConfig | undefined): Promise<WID<T>> {
+    const request = this.rest.get<WID<T>>(this.getUrl(parent, id), this.getConfig(token, params))
     return this.processAxios(request, parent)
   }
 
-  async add(input: Input, token?: string | undefined): Promise<T & { id: ID }> {
+  async add(input: Input, token?: string | undefined, params?: AxiosRequestConfig | undefined): Promise<T & { id: ID }> {
     const record = this.formConverter(input)
     dLog("record to save = ", record)
     const data = await this.validateOnCreate(this.beforeSave(record));
     const parent = record._parentPath
     dLog("add url = ", this.getUrl(parent))
-    const request = this.rest.post<T & { id: ID }>(this.getUrl(parent), data, this.getAuthConfig(token))
+    const request = this.rest.post<T & { id: ID }>(this.getUrl(parent), data, this.getConfig(token, params))
     return this.processAxios(request, parent)
   }
 
-  override async set(input: Input & { id: ID }, options: SetOptions, token?: string | undefined): Promise<T & { id: ID }> {
+  override async set(input: Input & { id: ID }, options: SetOptions, token?: string | undefined, params?: AxiosRequestConfig | undefined): Promise<T & { id: ID }> {
     const record = this.formConverter(input)
     const data = await this.validateOnCreate(this.beforeSave(record));
     const id = record.id
     const parent = record._parentPath
     const fn = options.merge ? this.rest.patch : this.rest.post
-    const request = fn<T & { id: ID }>(this.getUrl(parent, id), data, this.getAuthConfig(token))
+    const request = fn<T & { id: ID }>(this.getUrl(parent, id), data, this.getConfig(token, params))
     return this.processAxios(request, parent)
   }
-  async put(input: Input & { id: ID }, token?: string | undefined): Promise<T & { id: ID }> {
+  async put(input: Input & { id: ID }, token?: string | undefined, params?: AxiosRequestConfig | undefined): Promise<T & { id: ID }> {
     const record = this.formConverter(input)
     const data = await this.validateOnUpdate(this.beforeSave(record))
     const id = record.id
     const parent = record._parentPath
-    const request = this.rest.put(this.getUrl(parent, id), data, this.getAuthConfig(token))
+    const request = this.rest.put(this.getUrl(parent, id), data, this.getConfig(token, params))
     return this.processAxios(request, parent)
   }
 
-  override async delete(id: ID, parent: string | undefined, token?: string | undefined): Promise<void> {
+  override async delete(id: ID, parent: string | undefined, token?: string | undefined, params?: AxiosRequestConfig | undefined): Promise<void> {
     const url = this.getUrl(parent, id)
     dLog("deleting", url)
-    const request = this.rest.delete<void>(url, this.getAuthConfig(token))
+    const request = this.rest.delete<void>(url, this.getConfig(token, params))
     return this.processAxios(request, parent)
   }
 
-  async deleteRecord(record: T, token?: string | undefined): Promise<void> {
+  async deleteRecord(record: T, token?: string | undefined, params?: AxiosRequestConfig | undefined): Promise<void> {
     const url = "/" + this.getDocumentPath(record)
     dLog("delete url = ", url)
-    const request = this.rest.delete<void>(url, this.getAuthConfig(token))
+    const request = this.rest.delete<void>(url, this.getConfig(token, params))
     return this.processAxios(request, null)
   }
 
-  async deleteGroup(idx: ID[], parent: string | undefined, token?: string | undefined): Promise<unknown> {
-    const promises = idx.map(id => this.delete(id, parent, token))
+  async deleteGroup(idx: ID[], parent: string | undefined, token?: string | undefined, params?: AxiosRequestConfig | undefined): Promise<unknown> {
+    const promises = idx.map(id => this.delete(id, parent, token, params))
     return Promise.all(promises)
   }
 }
