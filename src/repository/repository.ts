@@ -19,10 +19,10 @@ const dLog = debug("test:repository")
 
 const CHUNK_SIZE = 500;
 
-export abstract class Repository<T extends ModelType> extends BaseRepository<T> {
+export abstract class Repository<T extends ModelType, Input = Partial<T>> extends BaseRepository<T, Input> {
   abstract definition: ModelDefinition
-  formConverter(data: T): Partial<T> {
-    return data
+  formConverter(data: Partial<T> | Input): Partial<T> {
+    return data as Partial<T>
   }
   qg: QueryGroup<T> = {}
 
@@ -94,7 +94,8 @@ export abstract class Repository<T extends ModelType> extends BaseRepository<T> 
     return snaps.docs.map(doc => doc.data())
   }
 
-  async add(_data: T) {
+  async add(input: Input) {
+    const _data = this.formConverter(input)
     const data = await this.validateOnCreate(this.beforeSave(_data));
     await this.checkRecordId(data);
     return this.save(data);
@@ -139,7 +140,8 @@ export abstract class Repository<T extends ModelType> extends BaseRepository<T> 
     return this.getDocRefResult(docRef);
   };
 
-  async set(record: Partial<T> & { id: ID }, options: SetOptions) {
+  async set(input: Input & { id: ID }, options: SetOptions) {
+    const record = this.formConverter(input) as WID<Partial<T>>
     const docRef = this.documentReference(record)
     const data = await this.validateOnUpdate(this.beforeSave(record));
     await docRef.set(data, options) // docRef.set(data, options);
