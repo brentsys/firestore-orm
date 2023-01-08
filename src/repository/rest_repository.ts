@@ -124,8 +124,7 @@ export abstract class RestRepository<T extends ModelType, Input = Partial<T>> ex
     const request = fn<T & { id: ID }>(this.getUrl(parent, id), data, this.getConfig(token, params))
     return this.processAxios(request, parent)
   }
-  async put(input: Input & { id: ID }, token?: string | undefined, params?: AxiosRequestConfig | undefined): Promise<T & { id: ID }> {
-    const record = await this.formConverter(input)
+  async put(record: Partial<T> & { id: ID }, token?: string | undefined, params?: AxiosRequestConfig | undefined): Promise<T & { id: ID }> {
     const data = await this.validateOnUpdate(this.beforeSave(record))
     const id = record.id
     const parent = record._parentPath
