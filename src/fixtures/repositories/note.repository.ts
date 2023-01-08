@@ -9,8 +9,8 @@ const noteDefinition: ModelDefinition<Note> = {
 
 export class NoteRepository extends ClientRepository<Note> {
   qg: QueryGroup<Note> = {}
-  formConverter(data: Partial<Note>): Partial<Note> {
-    return data
+  formConverter(data: Partial<Note>): Promise<Partial<Note>> {
+    return Promise.resolve(data)
   }
   definition = noteDefinition
 

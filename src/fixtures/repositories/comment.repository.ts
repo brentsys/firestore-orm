@@ -3,8 +3,8 @@ import { Comment } from "../models/comment";
 import { getRestDefinition } from "./firebase";
 
 export class CommentRepository extends RestRepository<Comment> {
-  formConverter(data: Partial<Comment>): Partial<Comment> {
-    return data
+  formConverter(data: Partial<Comment>): Promise<Partial<Comment>> {
+    return Promise.resolve(data)
   }
 
   constructor() {
