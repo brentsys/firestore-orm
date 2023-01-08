@@ -106,7 +106,7 @@ export abstract class RestRepository<T extends ModelType, Input = Partial<T>> ex
   }
 
   async add(input: Input, token?: string | undefined, params?: AxiosRequestConfig | undefined): Promise<T & { id: ID }> {
-    const record = this.formConverter(input)
+    const record = await this.formConverter(input)
     dLog("record to save = ", record)
     const data = await this.validateOnCreate(this.beforeSave(record));
     const parent = record._parentPath
@@ -116,7 +116,7 @@ export abstract class RestRepository<T extends ModelType, Input = Partial<T>> ex
   }
 
   override async set(input: Input & { id: ID }, options: SetOptions, token?: string | undefined, params?: AxiosRequestConfig | undefined): Promise<T & { id: ID }> {
-    const record = this.formConverter(input)
+    const record = await this.formConverter(input)
     const data = await this.validateOnCreate(this.beforeSave(record));
     const id = record.id
     const parent = record._parentPath
@@ -125,7 +125,7 @@ export abstract class RestRepository<T extends ModelType, Input = Partial<T>> ex
     return this.processAxios(request, parent)
   }
   async put(input: Input & { id: ID }, token?: string | undefined, params?: AxiosRequestConfig | undefined): Promise<T & { id: ID }> {
-    const record = this.formConverter(input)
+    const record = await this.formConverter(input)
     const data = await this.validateOnUpdate(this.beforeSave(record))
     const id = record.id
     const parent = record._parentPath

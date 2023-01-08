@@ -21,8 +21,8 @@ const CHUNK_SIZE = 500;
 
 export abstract class Repository<T extends ModelType, Input = Partial<T>> extends BaseRepository<T, Input> {
   abstract definition: ModelDefinition
-  formConverter(data: Partial<T> | Input): Partial<T> {
-    return data as Partial<T>
+  formConverter(data: Partial<T> | Input): Promise<Partial<T>> {
+    return Promise.resolve(data as Partial<T>)
   }
   qg: QueryGroup<T> = {}
 
@@ -95,7 +95,7 @@ export abstract class Repository<T extends ModelType, Input = Partial<T>> extend
   }
 
   async add(input: Input) {
-    const _data = this.formConverter(input)
+    const _data = await this.formConverter(input)
     const data = await this.validateOnCreate(this.beforeSave(_data));
     await this.checkRecordId(data);
     return this.save(data);
@@ -141,7 +141,7 @@ export abstract class Repository<T extends ModelType, Input = Partial<T>> extend
   };
 
   async set(input: Input & { id: ID }, options: SetOptions) {
-    const record = this.formConverter(input) as WID<Partial<T>>
+    const record = await this.formConverter(input) as WID<Partial<T>>
     const docRef = this.documentReference(record)
     const data = await this.validateOnUpdate(this.beforeSave(record));
     await docRef.set(data, options) // docRef.set(data, options);
